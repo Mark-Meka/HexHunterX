@@ -1,1 +1,0 @@
-﻿"""HexHunterX report generation modules."""

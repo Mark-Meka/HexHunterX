@@ -1,0 +1,1 @@
+﻿"""HexHunterX external tool integrations."""

@@ -25,6 +25,7 @@ build/
 
 # Reports output
 reports/output/
+mark/
 
 # Data results
 data/results/

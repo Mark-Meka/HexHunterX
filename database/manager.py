@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunter -- Database Manager.
 
 Async SQLite database handler with full CRUD and scan resume support.
@@ -103,6 +103,8 @@ class DatabaseManager:
             return [dict(r) for r in await cur.fetchall()]
 
     async def update_subdomain(self, sub_id: int, **kwargs):
+        if not kwargs:
+            return  # Nothing to update
         sets = ", ".join(f"{k} = ?" for k in kwargs)
         vals = list(kwargs.values()) + [sub_id]
         await self._db.execute(f"UPDATE subdomains SET {sets} WHERE id = ?", vals)

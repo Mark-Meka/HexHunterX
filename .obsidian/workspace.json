@@ -185,8 +185,19 @@
   },
   "active": "c3558838277177d1",
   "lastOpenFiles": [
+    "hexhunter.db-shm",
+    "hexhunter.db-wal",
+    "modules/fuzzing/__pycache__/endpoints.cpython-314.pyc",
+    "modules/fuzzing/__pycache__/params.cpython-314.pyc",
+    "modules/scanning/__pycache__/__init__.cpython-314.pyc",
+    "modules/scanning/__pycache__/fingerprint.cpython-314.pyc",
+    "modules/scanning/__pycache__/ports.cpython-314.pyc",
+    "modules/scanning/__pycache__/directories.cpython-314.pyc",
+    "modules/scanning/__pycache__",
+    "mark/hexhunter_report_epicgames.com.html",
+    "mark/hexhunter_report_epicgames.com.json",
     "FEATURES.md",
-    "FILE_STRUCTURE.md",
-    "README.md"
+    "README.md",
+    "FILE_STRUCTURE.md"
   ]
 }

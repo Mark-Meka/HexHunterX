@@ -1,24 +1,21 @@
-<![CDATA[<div align="center">
-
-```
-    ██╗  ██╗███████╗██╗  ██╗██╗  ██╗██╗   ██╗███╗   ██╗████████╗███████╗██████╗
-    ██║  ██║██╔════╝╚██╗██╔╝██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔════╝██╔══██╗
-    ███████║█████╗   ╚███╔╝ ███████║██║   ██║██╔██╗ ██║   ██║   █████╗  ██████╔╝
-    ██╔══██║██╔══╝   ██╔██╗ ██╔══██║██║   ██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗
-    ██║  ██║███████╗██╔╝ ██╗██║  ██║╚██████╔╝██║ ╚████║   ██║   ███████╗██║  ██║
-    ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
-```
-
-**Modular Penetration Testing Framework**
-
-[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg)]()
-[![Payloads](https://img.shields.io/badge/Payloads-246-red.svg)]()
-[![Detectors](https://img.shields.io/badge/Vuln%20Detectors-10-orange.svg)]()
-
-*A semi-automated pentesting framework for bug bounty hunters and red teams.*
-
+<div align="center">
+<pre>
+██╗  ██╗███████╗██╗  ██╗██╗  ██╗██╗   ██╗███╗   ██╗████████╗███████╗██████╗
+██║  ██║██╔════╝╚██╗██╔╝██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔════╝██╔══██╗
+███████║█████╗   ╚███╔╝ ███████║██║   ██║██╔██╗ ██║   ██║   █████╗  ██████╔╝
+██╔══██║██╔══╝   ██╔██╗ ██╔══██║██║   ██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗
+██║  ██║███████╗██╔╝ ██╗██║  ██║╚██████╔╝██║ ╚████║   ██║   ███████╗██║  ██║
+╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
+</pre>
+<h3>Modular Penetration Testing Framework</h3>
+<p>
+<a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.10+-blue.svg" alt="Python"></a>
+<a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green.svg" alt="License"></a>
+<img src="https://img.shields.io/badge/Platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey.svg" alt="Platform">
+<img src="https://img.shields.io/badge/Payloads-246-red.svg" alt="Payloads">
+<img src="https://img.shields.io/badge/Vuln%20Detectors-10-orange.svg" alt="Detectors">
+</p>
+<p><em>A semi-automated pentesting framework for bug bounty hunters and red teams.</em></p>
 </div>
 
 ---
@@ -687,10 +684,6 @@ This project is licensed under the MIT License -- see the [LICENSE](LICENSE) fil
 ---
 
 <div align="center">
-
-**Built with ⚡ by the HexHunter Team**
-
-*If you find this tool useful, please ⭐ the repository!*
-
+<p><strong>Built with ⚡ by the HexHunter Team</strong></p>
+<p><em>If you find this tool useful, please ⭐ the repository!</em></p>
 </div>
-]]>

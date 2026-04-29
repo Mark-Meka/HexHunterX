@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunter -- CLI Interface.
 
 Command-line argument parsing and dispatch to the core engine.
@@ -62,6 +62,34 @@ Examples:
     output_group.add_argument("--silent", action="store_true",
                               help="Suppress banner and non-essential output")
 
+    # Authentication
+    auth_group = parser.add_argument_group("Authentication")
+    auth_group.add_argument("--cookie", default=None,
+                            help='Raw cookie header (e.g. "session=abc; token=xyz")')
+    auth_group.add_argument("--auth-token", default=None,
+                            help="Bearer/JWT token for Authorization header")
+    auth_group.add_argument("--auth-header", default=None,
+                            help='Custom auth header ("Name: Value")')
+    auth_group.add_argument("--login-url", default=None,
+                            help="Login form URL for auto-login")
+    auth_group.add_argument("--login-user", default=None,
+                            help="Username for auto-login")
+    auth_group.add_argument("--login-pass", default=None,
+                            help="Password for auto-login")
+
+    # OOB Detection
+    oob_group = parser.add_argument_group("OOB Detection (Blind Vulns)")
+    oob_group.add_argument("--oob", action="store_true",
+                           help="Enable blind/OOB vulnerability detection via Interactsh")
+    oob_group.add_argument("--oob-server", default=None,
+                           help="Custom Interactsh server (default: oast.pro)")
+    oob_group.add_argument("--oob-token", default=None,
+                           help="Auth token for private Interactsh server")
+    oob_group.add_argument("--oob-poll", type=int, default=5,
+                           help="OOB polling interval in seconds (default: 5)")
+    oob_group.add_argument("--oob-wait", type=int, default=30,
+                           help="Seconds to wait for late OOB callbacks (default: 30)")
+
     # Advanced
     adv_group = parser.add_argument_group("Advanced")
     adv_group.add_argument("--resume", action="store_true",
@@ -116,4 +144,17 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "db_path": args.db,
         "scope_file": args.scope_file,
         "exclude_file": args.exclude_file,
+        # Auth
+        "cookie": args.cookie,
+        "auth_token": args.auth_token,
+        "auth_header": args.auth_header,
+        "login_url": args.login_url,
+        "login_user": args.login_user,
+        "login_pass": args.login_pass,
+        # OOB
+        "oob": args.oob,
+        "oob_server": args.oob_server,
+        "oob_token": args.oob_token,
+        "oob_poll": args.oob_poll,
+        "oob_wait": args.oob_wait,
     }

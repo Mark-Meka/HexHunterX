@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunter -- SQL Injection Detection Module.
 
 Error-based SQL injection detection with multi-database support.
@@ -71,8 +71,9 @@ class SQLiDetector:
         5. Generate PoC and suggest further testing
     """
 
-    def __init__(self, http_client: AsyncHTTPClient):
+    def __init__(self, http_client: AsyncHTTPClient, oob_client=None):
         self.http = http_client
+        self.oob = oob_client
 
     async def detect(self, url: str) -> list[dict]:
         """Test a URL for SQL injection vulnerabilities."""
@@ -131,6 +132,13 @@ class SQLiDetector:
                     logger.finding("critical", "SQLi", base,
                                    f"param={param_name}, db={db_type}")
                     break  # One finding per param
+
+            # ── OOB blind SQLi payloads ──
+            if self.oob and self.oob.is_registered:
+                oob_payloads = self.oob.get_oob_payloads("sqli", base, param_name)
+                for oob_payload in oob_payloads:
+                    test_url = f"{base}?{urlencode({param_name: original_val + oob_payload})}"
+                    await self.http.get(test_url)  # Fire and forget
 
         return findings
 

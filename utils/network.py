@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunter -- Async HTTP Client with Retry & Rate Limiting.
 """
 
@@ -70,7 +70,7 @@ class RateLimiter:
 
 
 class AsyncHTTPClient:
-    """Async HTTP client with retry, rate limiting, and evidence capture."""
+    """Async HTTP client with retry, rate limiting, auth, and evidence capture."""
 
     def __init__(self, rate_limit=10.0, max_retries=3, timeout=10,
                  user_agent="HexHunter/1.0", max_connections=100,
@@ -85,6 +85,8 @@ class AsyncHTTPClient:
         self._session: aiohttp.ClientSession | None = None
         self._request_count = 0
         self._error_count = 0
+        self._auth_headers: dict[str, str] = {}
+        self._auth_cookies: dict[str, str] = {}
 
     async def __aenter__(self):
         await self.start()
@@ -94,15 +96,35 @@ class AsyncHTTPClient:
         await self.close()
 
     async def start(self):
+        cookie_jar = aiohttp.CookieJar(unsafe=True)  # Cross-domain cookie support
+        # Pre-load auth cookies into the jar
+        for name, value in self._auth_cookies.items():
+            cookie_jar.update_cookies({name: value})
         connector = aiohttp.TCPConnector(limit=self.max_connections, ssl=self.verify_ssl)
+        base_headers = {"User-Agent": self.user_agent}
+        base_headers.update(self._auth_headers)
         self._session = aiohttp.ClientSession(
             connector=connector, timeout=self.timeout,
-            headers={"User-Agent": self.user_agent})
+            headers=base_headers, cookie_jar=cookie_jar)
 
     async def close(self):
         if self._session and not self._session.closed:
             await self._session.close()
             await asyncio.sleep(0.25)
+
+    def set_auth(self, headers: dict[str, str] | None = None,
+                 cookies: dict[str, str] | None = None):
+        """Inject auth headers and cookies. Call before start() or triggers restart."""
+        if headers:
+            self._auth_headers.update(headers)
+        if cookies:
+            self._auth_cookies.update(cookies)
+        # If session already running, update it live
+        if self._session and not self._session.closed:
+            if headers:
+                self._session.headers.update(headers)
+            if cookies:
+                self._session.cookie_jar.update_cookies(cookies)
 
     async def request(self, method, url, headers=None, data=None, params=None,
                       follow_redirects=None) -> HTTPResponse:

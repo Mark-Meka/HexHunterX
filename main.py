@@ -64,6 +64,25 @@ def apply_cli_overrides(config: dict, cli_args: dict) -> dict:
         config.setdefault("database", {})["path"] = cli_args["db_path"]
     if cli_args.get("output_dir"):
         config.setdefault("reporting", {})["output_dir"] = cli_args["output_dir"]
+
+    # Auth config
+    auth_config = {}
+    for key in ("cookie", "auth_token", "auth_header", "login_url", "login_user", "login_pass"):
+        if cli_args.get(key):
+            auth_config[key] = cli_args[key]
+    if auth_config:
+        config["auth"] = auth_config
+
+    # OOB config
+    if cli_args.get("oob"):
+        config["oob"] = {
+            "enabled": True,
+            "server": cli_args.get("oob_server"),
+            "token": cli_args.get("oob_token"),
+            "poll_interval": cli_args.get("oob_poll", 5),
+            "wait_timeout": cli_args.get("oob_wait", 30),
+        }
+
     return config
 
 
@@ -84,6 +103,18 @@ async def run():
     console.print(f"  [bold cyan]Target:[/bold cyan]  {cli_args['target']}")
     console.print(f"  [bold cyan]Phases:[/bold cyan]  {', '.join(cli_args['phases'])}")
     console.print(f"  [bold cyan]Resume:[/bold cyan]  {'Yes' if cli_args['resume'] else 'No'}")
+
+    if config.get("auth"):
+        auth_mode = "cookie" if config["auth"].get("cookie") else \
+                    "bearer" if config["auth"].get("auth_token") else \
+                    "header" if config["auth"].get("auth_header") else \
+                    "auto-login" if config["auth"].get("login_url") else "none"
+        console.print(f"  [bold cyan]Auth:[/bold cyan]    {auth_mode}")
+
+    if config.get("oob", {}).get("enabled"):
+        server = config["oob"].get("server") or "oast.pro"
+        console.print(f"  [bold cyan]OOB:[/bold cyan]     enabled ({server})")
+
     console.print()
 
     # Create and run engine

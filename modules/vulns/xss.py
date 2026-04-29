@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunter -- XSS Detection Module.
 
 Detect reflected XSS and basic DOM-based XSS via reflection analysis.
@@ -37,8 +37,9 @@ class XSSDetector:
 
     CANARY = "hxhx5s"
 
-    def __init__(self, http_client: AsyncHTTPClient):
+    def __init__(self, http_client: AsyncHTTPClient, oob_client=None):
         self.http = http_client
+        self.oob = oob_client
 
     async def detect(self, url: str) -> list[dict]:
         """
@@ -111,6 +112,17 @@ class XSSDetector:
         # DOM XSS checks
         dom_findings = await self._check_dom_xss(url)
         findings.extend(dom_findings)
+
+        # ── OOB blind/stored XSS payloads ──
+        if self.oob and self.oob.is_registered:
+            parsed = urlparse(url)
+            base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+            params = parse_qs(parsed.query)
+            for param_name in params:
+                oob_payloads = self.oob.get_oob_payloads("xss", base, param_name)
+                for oob_payload in oob_payloads:
+                    oob_url = f"{base}?{urlencode({param_name: oob_payload})}"
+                    await self.http.get(oob_url)  # Fire and forget
 
         return findings
 

@@ -43,9 +43,11 @@ class HexHunterEngine:
         self.target_id: int | None = None
         self.target_profile: TargetProfile | None = None
         self._start_time: float = 0
+        self.auth_manager = None
+        self.oob_client = None
 
     async def initialize(self):
-        """Initialize database and HTTP client."""
+        """Initialize database, HTTP client, auth, and OOB."""
         await self.db.connect()
         self.http_client = AsyncHTTPClient(
             rate_limit=self.config.get("general", {}).get("rate_limit", 10),
@@ -54,11 +56,47 @@ class HexHunterEngine:
             user_agent=self.config.get("general", {}).get("user_agent", "HexHunter/1.0"),
             max_connections=self.config.get("general", {}).get("threads", 50),
         )
+
+        # ─── Auth Setup ────────────────────────────────
+        auth_config = self.config.get("auth", {})
+        if auth_config:
+            from utils.auth import AuthManager
+            self.auth_manager = AuthManager.from_config(auth_config)
+            # Inject auth into HTTP client before session starts
+            self.http_client.set_auth(
+                headers=self.auth_manager.auth_headers,
+                cookies=self.auth_manager.auth_cookies,
+            )
+
         await self.http_client.start()
+
+        # Auto-login if credentials provided
+        if self.auth_manager and self.auth_manager.needs_login:
+            success = await self.auth_manager.login(self.http_client)
+            if success:
+                # Re-inject captured cookies into the session
+                self.http_client.set_auth(cookies=self.auth_manager.auth_cookies)
+            else:
+                logger.warning("Auto-login failed -- continuing without auth")
+
+        # ─── OOB Setup ─────────────────────────────────
+        oob_config = self.config.get("oob", {})
+        if oob_config.get("enabled"):
+            from integrations.interactsh import InteractshClient
+            self.oob_client = InteractshClient(
+                server=oob_config.get("server"),
+                token=oob_config.get("token"),
+                poll_interval=oob_config.get("poll_interval", 5),
+            )
+            await self.oob_client.register()
+
         logger.success("Engine initialized")
 
     async def shutdown(self):
         """Clean up resources."""
+        if self.oob_client and self.oob_client.is_registered:
+            await self.oob_client.stop_polling()
+            await self.oob_client.deregister()
         if self.http_client:
             await self.http_client.close()
         await self.db.close()
@@ -289,7 +327,7 @@ class HexHunterEngine:
         await self.db.insert_log("fuzzing", "Completed fuzzing phase")
 
     async def _run_vuln_checks(self):
-        """Execute vulnerability detection phase."""
+        """Execute vulnerability detection phase with auth and OOB support."""
         from modules.vulns.xss import XSSDetector
         from modules.vulns.sqli import SQLiDetector
         from modules.vulns.redirect import OpenRedirectDetector
@@ -306,14 +344,25 @@ class HexHunterEngine:
             logger.warning("No alive hosts for vulnerability checks")
             return
 
+        # ─── Auth: Verify session before vuln checks ───
+        if self.auth_manager and self.auth_manager.is_authenticated:
+            base_url = f"https://{alive_subs[0]['name']}"
+            await self.auth_manager.refresh_if_needed(self.http_client, base_url)
+
+        # ─── OOB: Start background polling ────────────
+        if self.oob_client and self.oob_client.is_registered:
+            await self.oob_client.start_polling()
+
+        # Build detectors -- pass OOB client to blind-capable ones
+        oob = self.oob_client  # None if OOB disabled
         detectors = [
-            ("XSS", XSSDetector(self.http_client)),
-            ("SQLi", SQLiDetector(self.http_client)),
+            ("XSS", XSSDetector(self.http_client, oob_client=oob)),
+            ("SQLi", SQLiDetector(self.http_client, oob_client=oob)),
             ("Open Redirect", OpenRedirectDetector(self.http_client)),
             ("IDOR", IDORDetector(self.http_client)),
             ("Misconfiguration", MisconfigDetector(self.http_client)),
-            ("SSTI", SSTIDetector(self.http_client)),
-            ("SSRF", SSRFDetector(self.http_client)),
+            ("SSTI", SSTIDetector(self.http_client, oob_client=oob)),
+            ("SSRF", SSRFDetector(self.http_client, oob_client=oob)),
             ("NoSQLi", NoSQLiDetector(self.http_client)),
             ("CSRF", CSRFDetector(self.http_client)),
             ("CORS", CORSDetector(self.http_client)),
@@ -323,7 +372,6 @@ class HexHunterEngine:
             endpoints = await self.db.get_endpoints(sub["id"])
             base_url = f"https://{sub['name']}"
 
-            # Run misconfiguration checks on the base host
             for name, detector in detectors:
                 try:
                     if name == "Misconfiguration":
@@ -354,6 +402,30 @@ class HexHunterEngine:
                         logger.finding(v["severity"], v["type"], base_url, v.get("title", ""))
                 except Exception as e:
                     logger.debug(f"Error in {name} detector for {base_url}: {e}")
+
+        # ─── OOB: Collect blind findings ──────────────
+        if self.oob_client and self.oob_client.is_registered:
+            await self.oob_client.stop_polling()
+            oob_wait = self.config.get("oob", {}).get("wait_timeout", 30)
+            await self.oob_client.wait_for_callbacks(timeout=oob_wait)
+
+            # Convert OOB interactions to findings
+            oob_findings = self.oob_client.get_findings()
+            for v in oob_findings:
+                vuln = Vulnerability(
+                    subdomain_id=alive_subs[0]["id"],
+                    target_id=self.target_id,
+                    vuln_type=v["type"],
+                    severity=v["severity"],
+                    title=v.get("title", ""),
+                    description=v.get("description", ""),
+                    evidence=v.get("evidence", ""),
+                    request_data=str(v.get("request", "")),
+                    response_data=str(v.get("response", ""))[:5000],
+                    confidence=v.get("confidence", "high"),
+                )
+                await self.db.insert_vulnerability(vuln)
+                logger.finding(v["severity"], v["type"], "", v.get("title", ""))
 
         await self.db.insert_log("vulns", "Completed vulnerability checks")
 

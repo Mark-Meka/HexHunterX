@@ -57,8 +57,9 @@ class SSRFDetector:
         4. Generate PoC with reproduction steps
     """
 
-    def __init__(self, http_client: AsyncHTTPClient):
+    def __init__(self, http_client: AsyncHTTPClient, oob_client=None):
         self.http = http_client
+        self.oob = oob_client
 
     async def detect(self, url: str) -> list[dict]:
         """Test a URL for SSRF vulnerabilities."""
@@ -85,8 +86,15 @@ class SSRFDetector:
             if baseline_resp.error:
                 continue
 
-            # Test SSRF payloads
-            for payload in PayloadEngine.get_payloads("ssrf"):
+            # ── Standard SSRF payloads ──
+            all_payloads = list(PayloadEngine.get_payloads("ssrf"))
+
+            # ── OOB blind SSRF payloads ──
+            if self.oob and self.oob.is_registered:
+                oob_payloads = self.oob.get_oob_payloads("ssrf", base, param_name)
+                all_payloads.extend(oob_payloads)
+
+            for payload in all_payloads:
                 test_url = f"{base}?{urlencode({param_name: payload})}"
                 resp = await self.http.get(test_url)
 

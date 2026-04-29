@@ -48,8 +48,9 @@ class SSTIDetector:
         5. Generate PoC with engine-specific escalation payloads
     """
 
-    def __init__(self, http_client: AsyncHTTPClient):
+    def __init__(self, http_client: AsyncHTTPClient, oob_client=None):
         self.http = http_client
+        self.oob = oob_client
 
     async def detect(self, url: str) -> list[dict]:
         """Test a URL for SSTI vulnerabilities."""
@@ -113,6 +114,13 @@ class SSTIDetector:
                     logger.finding("critical", "SSTI", base,
                                    f"param={param_name}, engine={engine}")
                     break  # One finding per parameter
+
+            # ── OOB blind SSTI payloads ──
+            if self.oob and self.oob.is_registered:
+                oob_payloads = self.oob.get_oob_payloads("ssti", base, param_name)
+                for oob_payload in oob_payloads:
+                    test_url = f"{base}?{urlencode({param_name: oob_payload})}"
+                    await self.http.get(test_url)  # Fire and forget -- callback is async
 
         return findings
 

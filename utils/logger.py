@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Structured Logging System.
+HexHunterX -- Structured Logging System.
 
 Provides color-coded, leveled logging with both console (Rich) and file output.
 """
@@ -15,9 +15,9 @@ from rich.logging import RichHandler
 from rich.theme import Theme
 
 # ──────────────────────────────────────────────
-# Custom theme for HexHunter console output
+# Custom theme for HexHunterX console output
 # ──────────────────────────────────────────────
-HEXHUNTER_THEME = Theme({
+HexHunterX_THEME = Theme({
     "info": "cyan",
     "warning": "yellow",
     "error": "bold red",
@@ -29,19 +29,19 @@ HEXHUNTER_THEME = Theme({
     "dim": "dim white",
 })
 
-console = Console(theme=HEXHUNTER_THEME)
+console = Console(theme=HexHunterX_THEME)
 
 # ──────────────────────────────────────────────
 # Banner
 # ──────────────────────────────────────────────
 BANNER = r"""
 [bold cyan]
-    ██╗  ██╗███████╗██╗  ██╗██╗  ██╗██╗   ██╗███╗   ██╗████████╗███████╗██████╗
-    ██║  ██║██╔════╝╚██╗██╔╝██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔════╝██╔══██╗
-    ███████║█████╗   ╚███╔╝ ███████║██║   ██║██╔██╗ ██║   ██║   █████╗  ██████╔╝
-    ██╔══██║██╔══╝   ██╔██╗ ██╔══██║██║   ██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗
-    ██║  ██║███████╗██╔╝ ██╗██║  ██║╚██████╔╝██║ ╚████║   ██║   ███████╗██║  ██║
-    ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
+    ██╗  ██╗███████╗██╗  ██╗██╗  ██╗██╗   ██╗███╗   ██╗████████╗███████╗██████╗ ██╗  ██╗
+    ██║  ██║██╔════╝╚██╗██╔╝██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔════╝██╔══██╗╚██╗██╔╝
+    ███████║█████╗   ╚███╔╝ ███████║██║   ██║██╔██╗ ██║   ██║   █████╗  ██████╔╝ ╚███╔╝
+    ██╔══██║██╔══╝   ██╔██╗ ██╔══██║██║   ██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗ ██╔██╗
+    ██║  ██║███████╗██╔╝ ██╗██║  ██║╚██████╔╝██║ ╚████║   ██║   ███████╗██║  ██║██╔╝ ██╗
+    ╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
 [/bold cyan]
 [dim]    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/dim]
 [bold white]    Modular Penetration Testing Framework[/bold white]                    [dim]v1.0.0[/dim]
@@ -50,13 +50,13 @@ BANNER = r"""
 
 
 def print_banner():
-    """Display the HexHunter banner."""
+    """Display the HexHunterX banner."""
     console.print(BANNER)
 
 
-class HexHunterLogger:
+class HexHunterXLogger:
     """
-    Centralized logger for the HexHunter framework.
+    Centralized logger for the HexHunterX framework.
 
     Features:
         - Rich console output with color-coded levels
@@ -65,7 +65,7 @@ class HexHunterLogger:
         - Phase tracking for workflow visibility
     """
 
-    _instances: dict[str, "HexHunterLogger"] = {}
+    _instances: dict[str, "HexHunterXLogger"] = {}
 
     def __init__(self, module_name: str, log_dir: str = "logs"):
         self.module_name = module_name
@@ -73,7 +73,7 @@ class HexHunterLogger:
         self.log_dir.mkdir(parents=True, exist_ok=True)
 
         # Configure Python logger
-        self.logger = logging.getLogger(f"hexhunter.{module_name}")
+        self.logger = logging.getLogger(f"HexHunterX.{module_name}")
         self.logger.setLevel(logging.DEBUG)
         self.logger.propagate = False
 
@@ -95,7 +95,7 @@ class HexHunterLogger:
         console_handler.setFormatter(console_format)
 
         # File handler
-        log_file = self.log_dir / f"hexhunter_{datetime.now().strftime('%Y%m%d')}.log"
+        log_file = self.log_dir / f"HexHunterX_{datetime.now().strftime('%Y%m%d')}.log"
         file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setLevel(logging.DEBUG)
         file_format = logging.Formatter(
@@ -108,7 +108,7 @@ class HexHunterLogger:
         self.logger.addHandler(file_handler)
 
     @classmethod
-    def get_logger(cls, module_name: str) -> "HexHunterLogger":
+    def get_logger(cls, module_name: str) -> "HexHunterXLogger":
         """Get or create a logger instance for the given module."""
         if module_name not in cls._instances:
             cls._instances[module_name] = cls(module_name)

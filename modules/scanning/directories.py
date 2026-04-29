@@ -1,15 +1,15 @@
 ﻿"""
-HexHunter -- Directory Brute-Force Module.
+HexHunterX -- Directory Brute-Force Module.
 
 Discover hidden directories and files via wordlist-based brute-forcing.
 """
 
 import asyncio
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from utils.helpers import load_wordlist, deduplicate
 
-logger = HexHunterLogger.get_logger("scanning.directories")
+logger = HexHunterXLogger.get_logger("scanning.directories")
 
 # Status codes indicating a found directory
 VALID_STATUS_CODES = {200, 201, 202, 204, 301, 302, 307, 308, 401, 403, 405}
@@ -80,7 +80,7 @@ class DirectoryBruter:
 
     async def _get_baseline(self, base_url: str) -> dict:
         """Get baseline 404 response for comparison."""
-        fake_path = f"{base_url}/hexhunter_nonexistent_path_test_12345"
+        fake_path = f"{base_url}/HexHunterX_nonexistent_path_test_12345"
         resp = await self.http.get(fake_path)
         return {
             "status_code": resp.status_code,

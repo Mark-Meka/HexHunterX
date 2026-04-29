@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Output Parsers.
+HexHunterX -- Output Parsers.
 
 Parse JSON, XML, and text outputs from external tools into unified schema.
 """

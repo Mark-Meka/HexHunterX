@@ -1,14 +1,14 @@
 ﻿"""
-HexHunter -- ASN / IP Range Mapping Module.
+HexHunterX -- ASN / IP Range Mapping Module.
 
 ASN lookup and IP range expansion for target discovery.
 """
 
 import ipaddress
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 
-logger = HexHunterLogger.get_logger("recon.asn")
+logger = HexHunterXLogger.get_logger("recon.asn")
 
 
 class ASNMapper:

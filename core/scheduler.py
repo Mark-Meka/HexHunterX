@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Task Scheduler.
+HexHunterX -- Task Scheduler.
 
 Manages concurrent task execution with semaphores and phase tracking.
 """
@@ -8,9 +8,9 @@ import asyncio
 from enum import Enum
 from dataclasses import dataclass, field
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 
-logger = HexHunterLogger.get_logger("scheduler")
+logger = HexHunterXLogger.get_logger("scheduler")
 
 
 class PhaseStatus(Enum):

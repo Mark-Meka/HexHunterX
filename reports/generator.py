@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Report Generator.
+HexHunterX -- Report Generator.
 
 Produces structured JSON and professional HTML reports from scan data.
 """
@@ -11,10 +11,10 @@ from pathlib import Path
 from jinja2 import Template
 
 from database.manager import DatabaseManager
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.helpers import ensure_dir, save_json
 
-logger = HexHunterLogger.get_logger("reports")
+logger = HexHunterXLogger.get_logger("reports")
 
 
 class ReportGenerator:
@@ -42,12 +42,12 @@ class ReportGenerator:
         formats = self.config.get("reporting", {}).get("format", ["json", "html"])
 
         if "json" in formats:
-            json_path = output / f"hexhunter_report_{target_name}.json"
+            json_path = output / f"HexHunterX_report_{target_name}.json"
             save_json(report_data, json_path)
             logger.success(f"JSON report: {json_path}")
 
         if "html" in formats:
-            html_path = output / f"hexhunter_report_{target_name}.html"
+            html_path = output / f"HexHunterX_report_{target_name}.html"
             await self._generate_html(report_data, html_path)
             logger.success(f"HTML report: {html_path}")
 
@@ -71,7 +71,7 @@ class ReportGenerator:
 
         return {
             "meta": {
-                "tool": "HexHunter",
+                "tool": "HexHunterX",
                 "version": "1.0.0",
                 "generated_at": datetime.now(timezone.utc).isoformat(),
                 "scan_id": target_id,
@@ -110,8 +110,8 @@ class ReportGenerator:
     def _get_default_template() -> str:
         """Fallback HTML template if template file not found."""
         return """<!DOCTYPE html>
-<html><head><title>HexHunter Report</title></head>
-<body><h1>HexHunter Scan Report</h1>
+<html><head><title>HexHunterX Report</title></head>
+<body><h1>HexHunterX Scan Report</h1>
 <p>Generated: {{ meta.generated_at }}</p>
 <h2>Vulnerabilities ({{ summary.total_vulnerabilities }})</h2>
 {% for vuln in vulnerabilities %}

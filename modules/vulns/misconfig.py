@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Misconfiguration Detection Module.
+HexHunterX -- Misconfiguration Detection Module.
 
 CORS, security headers, and information disclosure checks.
 """
@@ -7,10 +7,10 @@ CORS, security headers, and information disclosure checks.
 import re
 from urllib.parse import urlparse
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 
-logger = HexHunterLogger.get_logger("vulns.misconfig")
+logger = HexHunterXLogger.get_logger("vulns.misconfig")
 
 # Required security headers
 SECURITY_HEADERS = {
@@ -91,7 +91,7 @@ class MisconfigDetector:
     async def _check_cors(self, url: str) -> list[dict]:
         """Test for CORS misconfiguration."""
         findings = []
-        evil_origin = "https://evil.hexhunter.test"
+        evil_origin = "https://evil.HexHunterX.test"
 
         # Test with evil origin
         resp = await self.http.get(url, headers={"Origin": evil_origin})

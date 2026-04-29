@@ -1,5 +1,5 @@
-"""
-HexHunter -- Database Manager.
+﻿"""
+HexHunterX -- Database Manager.
 
 Async SQLite database handler with full CRUD and scan resume support.
 """
@@ -12,21 +12,21 @@ import aiosqlite
 from database.models import (
     Target, Subdomain, Endpoint, ScanResult, Vulnerability, LogEntry
 )
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 
-logger = HexHunterLogger.get_logger("database")
+logger = HexHunterXLogger.get_logger("database")
 
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 
 
 class DatabaseManager:
     """
-    Async database handler for HexHunter.
+    Async database handler for HexHunterX.
 
     Supports insert, update, query, and scan resume from SQLite.
     """
 
-    def __init__(self, db_path: str = "hexhunter.db"):
+    def __init__(self, db_path: str = "HexHunterX.db"):
         self.db_path = db_path
         self._db: aiosqlite.Connection | None = None
 

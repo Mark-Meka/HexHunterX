@@ -1,5 +1,5 @@
-"""
-HexHunter -- XSS Detection Module.
+﻿"""
+HexHunterX -- XSS Detection Module.
 
 Detect reflected XSS and basic DOM-based XSS via reflection analysis.
 """
@@ -7,11 +7,11 @@ Detect reflected XSS and basic DOM-based XSS via reflection analysis.
 import re
 from urllib.parse import urlencode, urlparse, parse_qs, urljoin
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
 
-logger = HexHunterLogger.get_logger("vulns.xss")
+logger = HexHunterXLogger.get_logger("vulns.xss")
 
 # Context detection patterns
 CONTEXT_PATTERNS = {

@@ -1,5 +1,5 @@
-"""
-HexHunter -- CORS Misconfiguration Detection Module.
+﻿"""
+HexHunterX -- CORS Misconfiguration Detection Module.
 
 Deep CORS testing using the full payload library -- reflected origin,
 null origin, subdomain suffix/prefix matching, and credential theft PoC.
@@ -7,26 +7,26 @@ null origin, subdomain suffix/prefix matching, and credential theft PoC.
 
 from urllib.parse import urlparse
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
 
-logger = HexHunterLogger.get_logger("vulns.cors")
+logger = HexHunterXLogger.get_logger("vulns.cors")
 
 # Additional origin test cases generated from the target domain
 ORIGIN_TEMPLATES = [
-    "https://evil.hexhunter.test",
+    "https://evil.HexHunterX.test",
     "null",
     # Subdomain suffix match -- TARGET.com.evil.com
-    "https://{domain}.evil.hexhunter.test",
+    "https://{domain}.evil.HexHunterX.test",
     # Prefix match -- evilTARGET.com
     "https://evil{domain}",
     # Null byte
-    "https://{domain}%00.evil.hexhunter.test",
+    "https://{domain}%00.evil.HexHunterX.test",
     # Backtick
-    "https://{domain}%60.evil.hexhunter.test",
+    "https://{domain}%60.evil.HexHunterX.test",
     # With credentials separator
-    "https://evil.hexhunter.test%40{domain}",
+    "https://evil.HexHunterX.test%40{domain}",
 ]
 
 

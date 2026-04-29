@@ -1,5 +1,5 @@
-"""
-HexHunter -- Async HTTP Client with Retry & Rate Limiting.
+﻿"""
+HexHunterX -- Async HTTP Client with Retry & Rate Limiting.
 """
 
 import asyncio
@@ -8,9 +8,9 @@ from dataclasses import dataclass, field
 
 import aiohttp
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 
-logger = HexHunterLogger.get_logger("network")
+logger = HexHunterXLogger.get_logger("network")
 
 
 @dataclass
@@ -73,7 +73,7 @@ class AsyncHTTPClient:
     """Async HTTP client with retry, rate limiting, auth, and evidence capture."""
 
     def __init__(self, rate_limit=10.0, max_retries=3, timeout=10,
-                 user_agent="HexHunter/1.0", max_connections=100,
+                 user_agent="HexHunterX/1.0", max_connections=100,
                  follow_redirects=True, verify_ssl=False):
         self.rate_limiter = RateLimiter(rate_limit)
         self.max_retries = max_retries

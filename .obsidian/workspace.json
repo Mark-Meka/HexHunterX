@@ -185,6 +185,7 @@
   },
   "active": "c3558838277177d1",
   "lastOpenFiles": [
+    "logs/HexHunterX_20260429.log",
     "integrations/__pycache__/__init__.cpython-314.pyc",
     "__pycache__/main.cpython-314.pyc",
     "__pycache__",
@@ -195,7 +196,6 @@
     "utils/auth.py",
     "modules/vulns/__pycache__/misconfig.cpython-314.pyc",
     "modules/vulns/__pycache__/idor.cpython-314.pyc",
-    "modules/vulns/__pycache__/redirect.cpython-314.pyc",
     "FEATURES.md",
     "README.md",
     "FILE_STRUCTURE.md"

@@ -1,16 +1,16 @@
 ﻿"""
-HexHunter -- Open Redirect Detection Module.
+HexHunterX -- Open Redirect Detection Module.
 
 Detect open redirect vulnerabilities via parameter injection.
 """
 
 from urllib.parse import urlencode, urlparse, parse_qs
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
 
-logger = HexHunterLogger.get_logger("vulns.redirect")
+logger = HexHunterXLogger.get_logger("vulns.redirect")
 
 # Common parameter names used for redirects
 REDIRECT_PARAMS = [
@@ -31,7 +31,7 @@ class OpenRedirectDetector:
         4. Validate via redirect chain analysis
     """
 
-    EVIL_DOMAIN = "evil.hexhunter.test"
+    EVIL_DOMAIN = "evil.HexHunterX.test"
 
     def __init__(self, http_client: AsyncHTTPClient):
         self.http = http_client

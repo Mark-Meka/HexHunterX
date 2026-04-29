@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- IDOR Detection Module.
+HexHunterX -- IDOR Detection Module.
 
 Detect Insecure Direct Object Reference patterns via sequential ID testing.
 """
@@ -7,10 +7,10 @@ Detect Insecure Direct Object Reference patterns via sequential ID testing.
 import re
 from urllib.parse import urlencode, urlparse, parse_qs
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 
-logger = HexHunterLogger.get_logger("vulns.idor")
+logger = HexHunterXLogger.get_logger("vulns.idor")
 
 # Patterns that commonly contain object references
 IDOR_PARAM_PATTERNS = [

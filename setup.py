@@ -1,4 +1,4 @@
-"""HexHunter - Penetration Testing Framework."""
+﻿"""HexHunterX - Penetration Testing Framework."""
 
 from setuptools import setup, find_packages
 
@@ -9,19 +9,19 @@ with open("requirements.txt", "r", encoding="utf-8") as f:
     requirements = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
 setup(
-    name="hexhunter",
+    name="HexHunterX",
     version="1.0.0",
-    author="HexHunter Team",
+    author="HexHunterX Team",
     description="A modular penetration testing framework for bug bounty and red team workflows",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/hexhunter/hexhunter",
+    url="https://github.com/HexHunterX/HexHunterX",
     packages=find_packages(),
     python_requires=">=3.10",
     install_requires=requirements,
     entry_points={
         "console_scripts": [
-            "hexhunter=main:main",
+            "HexHunterX=main:main",
         ],
     },
     classifiers=[

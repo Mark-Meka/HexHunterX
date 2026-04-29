@@ -1,5 +1,5 @@
-"""
-HexHunter -- Cross-Site Request Forgery (CSRF) Detection Module.
+﻿"""
+HexHunterX -- Cross-Site Request Forgery (CSRF) Detection Module.
 
 Detect CSRF vulnerabilities by analysing HTML forms for missing tokens,
 checking SameSite cookie policy, and identifying state-changing endpoints
@@ -9,11 +9,11 @@ without CSRF protection.
 import re
 from urllib.parse import urlparse
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
 
-logger = HexHunterLogger.get_logger("vulns.csrf")
+logger = HexHunterXLogger.get_logger("vulns.csrf")
 
 # Common CSRF token field names
 TOKEN_FIELD_NAMES = [
@@ -190,7 +190,7 @@ class CSRFDetector:
         for inp in form.get("inputs", []):
             name = inp.get("name", "")
             if name:
-                fields += f'  <input type="hidden" name="{name}" value="HEXHUNTER_TEST"/>\n'
+                fields += f'  <input type="hidden" name="{name}" value="HexHunterX_TEST"/>\n'
 
         return (
             f'<html>\n<body>\n'

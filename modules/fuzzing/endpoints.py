@@ -1,15 +1,15 @@
 ﻿"""
-HexHunter -- Hidden Endpoint Discovery Module.
+HexHunterX -- Hidden Endpoint Discovery Module.
 
 Brute-force API paths, backup files, and hidden endpoints.
 """
 
 import asyncio
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from utils.helpers import load_wordlist
 
-logger = HexHunterLogger.get_logger("fuzzing.endpoints")
+logger = HexHunterXLogger.get_logger("fuzzing.endpoints")
 
 # Common API path patterns
 API_PATHS = [
@@ -53,7 +53,7 @@ class EndpointFuzzer:
         found = []
 
         # Get baseline 404
-        baseline = await self.http.get(f"{base}/hexhunter_fuzz_baseline_404")
+        baseline = await self.http.get(f"{base}/HexHunterX_fuzz_baseline_404")
         baseline_size = len(baseline.body)
 
         logger.info(f"Fuzzing hidden endpoints on {base}")

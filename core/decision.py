@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Smart Decision Engine.
+HexHunterX -- Smart Decision Engine.
 
 Analyzes intermediate results to prioritize and customize subsequent phases.
 """
@@ -7,9 +7,9 @@ Analyzes intermediate results to prioritize and customize subsequent phases.
 import re
 from dataclasses import dataclass, field
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 
-logger = HexHunterLogger.get_logger("decision")
+logger = HexHunterXLogger.get_logger("decision")
 
 
 @dataclass

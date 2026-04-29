@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Subdomain Enumeration Module.
+HexHunterX -- Subdomain Enumeration Module.
 
 Passive (crt.sh, APIs), active (DNS brute-force), and permutation-based enumeration.
 """
@@ -8,11 +8,11 @@ import asyncio
 import json
 from pathlib import Path
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from utils.helpers import deduplicate, load_wordlist
 
-logger = HexHunterLogger.get_logger("recon.subdomains")
+logger = HexHunterXLogger.get_logger("recon.subdomains")
 
 
 class SubdomainEnumerator:

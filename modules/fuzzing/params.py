@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Parameter Discovery Module.
+HexHunterX -- Parameter Discovery Module.
 
 Discover hidden parameters via reflection testing and brute-force.
 """
@@ -8,11 +8,11 @@ import asyncio
 import re
 from urllib.parse import urlencode, urlparse, parse_qs
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from utils.helpers import load_wordlist
 
-logger = HexHunterLogger.get_logger("fuzzing.params")
+logger = HexHunterXLogger.get_logger("fuzzing.params")
 
 
 class ParamDiscoverer:

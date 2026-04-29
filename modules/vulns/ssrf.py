@@ -1,5 +1,5 @@
-"""
-HexHunter -- Server-Side Request Forgery (SSRF) Detection Module.
+﻿"""
+HexHunterX -- Server-Side Request Forgery (SSRF) Detection Module.
 
 Detect SSRF by injecting internal/cloud metadata URLs into URL-accepting
 parameters and analysing responses for internal data leakage.
@@ -8,11 +8,11 @@ parameters and analysing responses for internal data leakage.
 import re
 from urllib.parse import urlencode, urlparse, parse_qs
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
 
-logger = HexHunterLogger.get_logger("vulns.ssrf")
+logger = HexHunterXLogger.get_logger("vulns.ssrf")
 
 # Parameter names commonly used for URL input
 URL_PARAMS = [

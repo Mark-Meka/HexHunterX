@@ -1,1 +1,1 @@
-"""HexHunter vulnerability detection modules."""
+﻿"""HexHunterX vulnerability detection modules."""

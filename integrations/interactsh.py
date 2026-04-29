@@ -1,5 +1,5 @@
-"""
-HexHunter -- Interactsh OOB Client.
+﻿"""
+HexHunterX -- Interactsh OOB Client.
 
 Pure-Python Interactsh client for blind/out-of-band vulnerability detection.
 Generates unique callback domains and polls for DNS/HTTP/SMTP interactions.
@@ -16,9 +16,9 @@ from dataclasses import dataclass, field
 
 import aiohttp
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 
-logger = HexHunterLogger.get_logger("interactsh")
+logger = HexHunterXLogger.get_logger("interactsh")
 
 
 @dataclass

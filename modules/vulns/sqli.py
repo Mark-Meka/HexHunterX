@@ -1,5 +1,5 @@
-"""
-HexHunter -- SQL Injection Detection Module.
+﻿"""
+HexHunterX -- SQL Injection Detection Module.
 
 Error-based SQL injection detection with multi-database support.
 """
@@ -7,11 +7,11 @@ Error-based SQL injection detection with multi-database support.
 import re
 from urllib.parse import urlencode, urlparse, parse_qs
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
 
-logger = HexHunterLogger.get_logger("vulns.sqli")
+logger = HexHunterXLogger.get_logger("vulns.sqli")
 
 # Database error patterns for identification
 DB_ERROR_PATTERNS = {

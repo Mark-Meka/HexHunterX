@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Endpoint Collection Module.
+HexHunterX -- Endpoint Collection Module.
 
 Web crawling, JavaScript parsing, and Wayback Machine URL collection.
 """
@@ -7,11 +7,11 @@ Web crawling, JavaScript parsing, and Wayback Machine URL collection.
 import re
 from urllib.parse import urljoin, urlparse
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from utils.helpers import deduplicate
 
-logger = HexHunterLogger.get_logger("recon.endpoints")
+logger = HexHunterXLogger.get_logger("recon.endpoints")
 
 
 class EndpointCollector:

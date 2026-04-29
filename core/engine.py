@@ -1,5 +1,5 @@
-"""
-HexHunter -- Core Execution Engine.
+﻿"""
+HexHunterX -- Core Execution Engine.
 
 Orchestrates the full pentesting pipeline:
 Recon → Scanning → Fuzzing → Vulnerability Checks → Reporting
@@ -15,14 +15,14 @@ from core.decision import DecisionEngine, TargetProfile
 from core.scheduler import TaskScheduler, PhaseStatus
 from database.manager import DatabaseManager
 from database.models import Target, Subdomain, Endpoint, ScanResult, Vulnerability
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from utils.validators import InputValidator, TargetType
 
-logger = HexHunterLogger.get_logger("engine")
+logger = HexHunterXLogger.get_logger("engine")
 
 
-class HexHunterEngine:
+class HexHunterXEngine:
     """
     Main execution engine that orchestrates the pentesting workflow.
 
@@ -36,7 +36,7 @@ class HexHunterEngine:
 
     def __init__(self, config: dict):
         self.config = config
-        self.db = DatabaseManager(config.get("database", {}).get("path", "hexhunter.db"))
+        self.db = DatabaseManager(config.get("database", {}).get("path", "HexHunterX.db"))
         self.scheduler = TaskScheduler(config.get("general", {}).get("threads", 50))
         self.decision = DecisionEngine()
         self.http_client: AsyncHTTPClient | None = None
@@ -53,7 +53,7 @@ class HexHunterEngine:
             rate_limit=self.config.get("general", {}).get("rate_limit", 10),
             max_retries=self.config.get("general", {}).get("max_retries", 3),
             timeout=self.config.get("general", {}).get("timeout", 10),
-            user_agent=self.config.get("general", {}).get("user_agent", "HexHunter/1.0"),
+            user_agent=self.config.get("general", {}).get("user_agent", "HexHunterX/1.0"),
             max_connections=self.config.get("general", {}).get("threads", 50),
         )
 

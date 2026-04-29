@@ -1,1 +1,1 @@
-"""HexHunter CLI module."""
+﻿"""HexHunterX CLI module."""

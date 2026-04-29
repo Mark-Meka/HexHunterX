@@ -1,13 +1,13 @@
 ﻿"""
-HexHunter -- Service Detection Module.
+HexHunterX -- Service Detection Module.
 
 Identify services from banners and responses.
 """
 
 import re
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 
-logger = HexHunterLogger.get_logger("scanning.services")
+logger = HexHunterXLogger.get_logger("scanning.services")
 
 # Banner-to-service patterns
 SERVICE_PATTERNS = [

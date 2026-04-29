@@ -1,11 +1,11 @@
-<div align="center">
+﻿<div align="center">
 <pre>
-██╗  ██╗███████╗██╗  ██╗██╗  ██╗██╗   ██╗███╗   ██╗████████╗███████╗██████╗
-██║  ██║██╔════╝╚██╗██╔╝██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔════╝██╔══██╗
-███████║█████╗   ╚███╔╝ ███████║██║   ██║██╔██╗ ██║   ██║   █████╗  ██████╔╝
-██╔══██║██╔══╝   ██╔██╗ ██╔══██║██║   ██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗
-██║  ██║███████╗██╔╝ ██╗██║  ██║╚██████╔╝██║ ╚████║   ██║   ███████╗██║  ██║
-╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝
+██╗  ██╗███████╗██╗  ██╗██╗  ██╗██╗   ██╗███╗   ██╗████████╗███████╗██████╗ ██╗  ██╗
+██║  ██║██╔════╝╚██╗██╔╝██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔════╝██╔══██╗╚██╗██╔╝
+███████║█████╗   ╚███╔╝ ███████║██║   ██║██╔██╗ ██║   ██║   █████╗  ██████╔╝ ╚███╔╝
+██╔══██║██╔══╝   ██╔██╗ ██╔══██║██║   ██║██║╚██╗██║   ██║   ██╔══╝  ██╔══██╗ ██╔██╗
+██║  ██║███████╗██╔╝ ██╗██║  ██║╚██████╔╝██║ ╚████║   ██║   ███████╗██║  ██║██╔╝ ██╗
+╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝ ╚═╝  ╚═══╝   ╚═╝   ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝
 </pre>
 <h3>Modular Penetration Testing Framework</h3>
 <p>
@@ -22,7 +22,7 @@
 
 ## 🎯 Overview
 
-**HexHunter** is a production-grade, modular penetration testing framework that automates reconnaissance, scanning, fuzzing, and vulnerability detection while assisting human decision-making through structured reporting and a smart decision engine.
+**HexHunterX** is a production-grade, modular penetration testing framework that automates reconnaissance, scanning, fuzzing, and vulnerability detection while assisting human decision-making through structured reporting and a smart decision engine.
 
 Built with clean architecture, async-first design, and extensible module system -- suitable for real-world bug bounty workflows and red team engagements.
 
@@ -38,7 +38,9 @@ Built with clean architecture, async-first design, and extensible module system 
 | **Scanning** | Async port scanning, service detection, directory brute-force, technology fingerprinting |
 | **Fuzzing** | Parameter discovery, hidden endpoint detection, wordlist management, 246-payload injection engine |
 | **Vulnerability Detection** | 10 detectors: XSS, SQLi, SSTI, SSRF, NoSQLi, CSRF, CORS, IDOR, Open Redirect, Misconfiguration |
-| **Integrations** | subfinder, httpx, ffuf, nuclei (graceful fallback to built-in alternatives) |
+| **Authenticated Scanning** | Cookie, JWT/Bearer, custom header, and auto-login (form POST with CSRF extraction) |
+| **Blind/OOB Detection** | Interactsh integration for blind SSRF, blind SQLi, blind SSTI, and blind/stored XSS via DNS/HTTP callbacks |
+| **Integrations** | subfinder, httpx, ffuf, nuclei, Interactsh (graceful fallback to built-in alternatives) |
 | **Reporting** | Professional HTML reports, structured JSON output, severity classification, evidence capture |
 | **Intelligence** | Smart decision engine adapts scanning based on target profile |
 | **Performance** | Async I/O, rate limiting, connection pooling, retry with backoff, deduplication |
@@ -49,7 +51,7 @@ Built with clean architecture, async-first design, and extensible module system 
 ## 🏗️ Architecture
 
 ```
-HexHunter/
+HexHunterX/
 ├── main.py                          # Entry point
 ├── requirements.txt                 # Dependencies
 ├── config/
@@ -93,7 +95,8 @@ HexHunter/
 │   ├── subfinder.py                 # subfinder integration
 │   ├── httpx.py                     # httpx integration
 │   ├── ffuf.py                      # ffuf integration
-│   └── nuclei.py                    # nuclei integration
+│   ├── nuclei.py                    # nuclei integration
+│   └── interactsh.py                # OOB blind vuln detection
 │
 ├── database/                        # 🗄️ Storage
 │   ├── models.py                    # Data models
@@ -103,7 +106,8 @@ HexHunter/
 ├── utils/                           # 🛠️ Utilities
 │   ├── logger.py                    # Rich logging system
 │   ├── validators.py                # Input validation
-│   ├── network.py                   # Async HTTP client
+│   ├── network.py                   # Async HTTP client (with auth injection)
+│   ├── auth.py                      # Authentication manager (cookie/JWT/auto-login)
 │   ├── parsers.py                   # Output parsers
 │   └── helpers.py                   # General helpers
 │
@@ -135,8 +139,8 @@ HexHunter/
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/HexHunter.git
-cd HexHunter
+git clone https://github.com/yourusername/HexHunterX.git
+cd HexHunterX
 
 # Install dependencies
 pip install -r requirements.txt
@@ -151,7 +155,7 @@ python main.py -t example.com --full-scan
 
 ### Optional: External Tools
 
-For enhanced capabilities, install these tools (HexHunter works without them):
+For enhanced capabilities, install these tools (HexHunterX works without them):
 
 ```bash
 # ProjectDiscovery tools
@@ -163,7 +167,7 @@ go install -v github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest
 go install github.com/ffuf/ffuf/v2@latest
 ```
 
-> These are **optional**. HexHunter falls back to built-in Python implementations when external tools are not available.
+> These are **optional**. HexHunterX falls back to built-in Python implementations when external tools are not available.
 
 ---
 
@@ -214,7 +218,7 @@ python main.py -t example.com --recon --vuln
 
 ### 3. Target Types
 
-HexHunter accepts multiple target formats:
+HexHunterX accepts multiple target formats:
 
 ```bash
 # Domain
@@ -286,7 +290,7 @@ general:
   timeout: 10            # HTTP timeout (seconds)
   rate_limit: 10         # Requests per second
   max_retries: 3         # Retry failed requests
-  user_agent: "HexHunter/1.0 (Security Assessment)"
+  user_agent: "HexHunterX/1.0 (Security Assessment)"
   verify_ssl: false      # Skip SSL certificate validation
 
 recon:
@@ -387,7 +391,7 @@ api.example.com
 
 ### 9. Database Management
 
-HexHunter stores all results in SQLite for persistence:
+HexHunterX stores all results in SQLite for persistence:
 
 ```bash
 # Use custom database file
@@ -549,9 +553,22 @@ Every detector runs automatically during the `--vuln` phase and produces finding
 | `-o, --output PATH` | Report output directory | `reports/output` |
 | `--format {json,html,both}` | Report format | `both` |
 | `--silent` | Suppress banner and non-essential output | off |
+| **Authentication** | | |
+| `--cookie STRING` | Raw cookie header (e.g. `"session=abc; token=xyz"`) | none |
+| `--auth-token STRING` | Bearer/JWT token for Authorization header | none |
+| `--auth-header STRING` | Custom auth header (`"X-API-Key: sk_live_abc"`) | none |
+| `--login-url URL` | Login form URL for auto-login | none |
+| `--login-user STRING` | Username for auto-login | none |
+| `--login-pass STRING` | Password for auto-login | none |
+| **OOB Detection (Blind Vulns)** | | |
+| `--oob` | Enable blind/OOB detection via Interactsh | off |
+| `--oob-server URL` | Custom Interactsh server | `oast.pro` |
+| `--oob-token STRING` | Auth token for private Interactsh server | none |
+| `--oob-poll N` | OOB polling interval in seconds | 5 |
+| `--oob-wait N` | Seconds to wait for late OOB callbacks | 30 |
 | **Advanced** | | |
 | `--resume` | Resume scan from database (skip completed phases) | off |
-| `--db PATH` | SQLite database file path | `hexhunter.db` |
+| `--db PATH` | SQLite database file path | `HexHunterX.db` |
 | `--scope-file PATH` | File with in-scope targets (one per line) | none |
 | `--exclude-file PATH` | File with out-of-scope targets (one per line) | none |
 
@@ -559,7 +576,7 @@ Every detector runs automatically during the `--vuln` phase and produces finding
 
 ## 🗄️ Database Schema
 
-HexHunter uses SQLite for persistent storage:
+HexHunterX uses SQLite for persistent storage:
 
 | Table | Purpose |
 |-------|---------|
@@ -574,7 +591,7 @@ HexHunter uses SQLite for persistent storage:
 
 ## 🧠 Smart Decision Engine
 
-HexHunter's decision engine adapts scanning based on what it discovers:
+HexHunterX's decision engine adapts scanning based on what it discovers:
 
 | Detection | Action |
 |-----------|--------|
@@ -603,6 +620,49 @@ python main.py -t target.com --fuzz --resume
 
 # Step 4: Run all vulnerability detectors
 python main.py -t target.com --vuln --resume
+```
+
+### Authenticated Scan (Cookie-based)
+
+```bash
+python main.py -t example.com --full-scan --cookie "session=abc123; csrf=xyz"
+```
+
+### Authenticated Scan (Auto-Login)
+
+```bash
+python main.py -t example.com --full-scan \
+  --login-url https://example.com/login \
+  --login-user admin \
+  --login-pass password123
+```
+
+### Authenticated Scan (JWT / API Key)
+
+```bash
+# JWT Bearer token
+python main.py -t api.example.com --full-scan --auth-token "eyJhbGciOiJIUzI1NiIs..."
+
+# Custom API key header
+python main.py -t api.example.com --full-scan --auth-header "X-API-Key: sk_live_abc123"
+```
+
+### Blind Vulnerability Detection (OOB)
+
+```bash
+# Enable Interactsh for blind SSRF, blind SQLi, blind SSTI, stored XSS
+python main.py -t example.com --full-scan --oob
+
+# Use a private Interactsh server with longer wait time
+python main.py -t example.com --full-scan --oob --oob-server interact.mydomain.com --oob-wait 60
+```
+
+### Combined: Auth + Blind Detection
+
+```bash
+python main.py -t example.com --full-scan \
+  --cookie "session=abc123" \
+  --oob --oob-wait 60
 ```
 
 ### Quick Vulnerability Check on a Single Page
@@ -638,19 +698,20 @@ python main.py -t target.com --full-scan --resume
 
 ## 🚧 Future Improvements
 
+- [x] ~~Authenticated scanning (Cookie/JWT session support)~~ ✅ Implemented
+- [x] ~~Blind/OOB vulnerability detection~~ ✅ Implemented (Interactsh)
 - [ ] Web-based dashboard (Flask/FastAPI)
 - [ ] Plugin architecture for custom modules
 - [ ] Multi-target campaign management
 - [ ] Active exploitation module (with safeguards)
 - [ ] API key management for premium OSINT sources
 - [ ] Docker containerization
-- [ ] CI/CD integration for automated testing
 - [ ] WebSocket support for real-time updates
 - [ ] Machine learning-based false positive reduction
 - [ ] Custom Nuclei template generation
 - [ ] Collaboration features (team sharing, comments)
 - [ ] Burp Suite/ZAP integration
-- [ ] Authenticated scanning (Cookie/JWT session support)
+- [ ] Headless browser engine for DOM XSS verification
 
 ---
 
@@ -674,7 +735,7 @@ This project is licensed under the MIT License -- see the [LICENSE](LICENSE) fil
 
 ## ⚠️ Legal Disclaimer
 
-**HexHunter is designed for authorized security testing only.**
+**HexHunterX is designed for authorized security testing only.**
 
 - Always obtain written permission before scanning any target
 - Never use this tool against systems you don't own or have explicit authorization to test
@@ -684,6 +745,6 @@ This project is licensed under the MIT License -- see the [LICENSE](LICENSE) fil
 ---
 
 <div align="center">
-<p><strong>Built with ⚡ by the HexHunter Team</strong></p>
+<p><strong>Built with ⚡ by the HexHunterX Team</strong></p>
 <p><em>If you find this tool useful, please ⭐ the repository!</em></p>
 </div>

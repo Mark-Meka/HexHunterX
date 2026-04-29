@@ -1,14 +1,14 @@
 ﻿"""
-HexHunter -- Wordlist Management Module.
+HexHunterX -- Wordlist Management Module.
 
 Load, merge, deduplicate, and manage wordlists for scanning/fuzzing.
 """
 
 from pathlib import Path
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.helpers import deduplicate
 
-logger = HexHunterLogger.get_logger("fuzzing.wordlists")
+logger = HexHunterXLogger.get_logger("fuzzing.wordlists")
 
 
 class WordlistManager:

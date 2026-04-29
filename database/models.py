@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Database Models.
+HexHunterX -- Database Models.
 
 Dataclass-based models mapping to SQLite tables.
 """

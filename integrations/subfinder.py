@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Subfinder Integration.
+HexHunterX -- Subfinder Integration.
 
 Wraps ProjectDiscovery's subfinder for passive subdomain enumeration.
 """

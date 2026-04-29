@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- General Helpers.
+HexHunterX -- General Helpers.
 
 Deduplication, hashing, timestamps, file I/O utilities.
 """

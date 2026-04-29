@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Base Tool Wrapper.
+HexHunterX -- Base Tool Wrapper.
 
 Abstract base class for wrapping external security tools.
 """
@@ -10,9 +10,9 @@ import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 
-logger = HexHunterLogger.get_logger("integrations")
+logger = HexHunterXLogger.get_logger("integrations")
 
 
 class ToolNotFoundError(Exception):

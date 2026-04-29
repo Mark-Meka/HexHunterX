@@ -1,14 +1,14 @@
 ﻿"""
-HexHunter -- Port Scanner Module.
+HexHunterX -- Port Scanner Module.
 
 Async TCP port scanning with banner grabbing and service identification.
 """
 
 import asyncio
 import socket
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 
-logger = HexHunterLogger.get_logger("scanning.ports")
+logger = HexHunterXLogger.get_logger("scanning.ports")
 
 # Common service-to-port mappings
 COMMON_SERVICES = {

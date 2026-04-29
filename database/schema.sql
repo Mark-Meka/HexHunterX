@@ -1,4 +1,4 @@
--- HexHunter SQLite Schema
+﻿-- HexHunterX SQLite Schema
 -- Persistent storage for scan state, findings, and evidence.
 
 CREATE TABLE IF NOT EXISTS targets (

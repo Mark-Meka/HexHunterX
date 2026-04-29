@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Input Validation & Normalization.
+HexHunterX -- Input Validation & Normalization.
 
 Validates domains, IPs, CIDRs, URLs, and manages scope filtering.
 """

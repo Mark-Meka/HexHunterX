@@ -1,1 +1,1 @@
-"""HexHunter core modules."""
+﻿"""HexHunterX core modules."""

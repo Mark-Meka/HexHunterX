@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- HTTPX Integration.
+HexHunterX -- HTTPX Integration.
 
 Wraps ProjectDiscovery's httpx for HTTP probing and tech detection.
 """

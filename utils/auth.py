@@ -1,5 +1,5 @@
-"""
-HexHunter -- Authentication Manager.
+﻿"""
+HexHunterX -- Authentication Manager.
 
 Handles cookie, JWT/Bearer, custom header, and auto-login authentication
 for authenticated scanning behind login walls.
@@ -8,9 +8,9 @@ for authenticated scanning behind login walls.
 import re
 from urllib.parse import urlencode
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 
-logger = HexHunterLogger.get_logger("auth")
+logger = HexHunterXLogger.get_logger("auth")
 
 
 class AuthManager:

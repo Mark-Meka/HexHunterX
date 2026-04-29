@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- Nuclei Integration.
+HexHunterX -- Nuclei Integration.
 
 Wraps ProjectDiscovery's nuclei for template-based vulnerability scanning.
 """

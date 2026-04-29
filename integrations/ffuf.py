@@ -1,5 +1,5 @@
 ﻿"""
-HexHunter -- FFUF Integration.
+HexHunterX -- FFUF Integration.
 
 Wraps ffuf for web fuzzing operations.
 """

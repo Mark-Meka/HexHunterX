@@ -1,5 +1,5 @@
-"""
-HexHunter -- CLI Interface.
+﻿"""
+HexHunterX -- CLI Interface.
 
 Command-line argument parsing and dispatch to the core engine.
 """
@@ -13,8 +13,8 @@ from utils.logger import print_banner
 def build_parser() -> argparse.ArgumentParser:
     """Build the argument parser with all flags."""
     parser = argparse.ArgumentParser(
-        prog="hexhunter",
-        description="HexHunter -- Modular Penetration Testing Framework",
+        prog="HexHunterX",
+        description="HexHunterX -- Modular Penetration Testing Framework",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -94,7 +94,7 @@ Examples:
     adv_group = parser.add_argument_group("Advanced")
     adv_group.add_argument("--resume", action="store_true",
                            help="Resume scan from database (skip completed phases)")
-    adv_group.add_argument("--db", default="hexhunter.db",
+    adv_group.add_argument("--db", default="HexHunterX.db",
                            help="SQLite database file path")
     adv_group.add_argument("--scope-file", default=None,
                            help="File containing in-scope targets (one per line)")

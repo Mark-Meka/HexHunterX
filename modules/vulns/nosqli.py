@@ -1,5 +1,5 @@
-"""
-HexHunter -- NoSQL Injection Detection Module.
+﻿"""
+HexHunterX -- NoSQL Injection Detection Module.
 
 Detect NoSQL injection in MongoDB/CouchDB backends via operator
 injection ($ne, $gt, $regex) in both URL parameters and JSON bodies.
@@ -9,11 +9,11 @@ import json
 import re
 from urllib.parse import urlencode, urlparse, parse_qs
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
 
-logger = HexHunterLogger.get_logger("vulns.nosqli")
+logger = HexHunterXLogger.get_logger("vulns.nosqli")
 
 # Parameter names commonly associated with authentication / queries
 AUTH_PARAMS = [

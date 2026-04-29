@@ -1,14 +1,14 @@
 ﻿"""
-HexHunter -- Technology Fingerprinting Module.
+HexHunterX -- Technology Fingerprinting Module.
 
 Detect web technologies, frameworks, and CMS from HTTP responses.
 """
 
 import re
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 
-logger = HexHunterLogger.get_logger("scanning.fingerprint")
+logger = HexHunterXLogger.get_logger("scanning.fingerprint")
 
 # Technology detection rules: (header/body pattern, technology name)
 HEADER_RULES = [

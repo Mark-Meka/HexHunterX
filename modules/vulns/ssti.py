@@ -1,5 +1,5 @@
-"""
-HexHunter -- Server-Side Template Injection (SSTI) Detection Module.
+﻿"""
+HexHunterX -- Server-Side Template Injection (SSTI) Detection Module.
 
 Detect SSTI by injecting arithmetic template expressions and checking
 whether the server evaluates them. Identifies Jinja2, Twig, FreeMarker,
@@ -9,11 +9,11 @@ ERB, and other engines.
 import re
 from urllib.parse import urlencode, urlparse, parse_qs
 
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
 
-logger = HexHunterLogger.get_logger("vulns.ssti")
+logger = HexHunterXLogger.get_logger("vulns.ssti")
 
 # Detection probes: expression -> expected computed result
 SSTI_PROBES = [

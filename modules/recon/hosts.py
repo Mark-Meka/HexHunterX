@@ -1,15 +1,15 @@
 ﻿"""
-HexHunter -- Live Host Detection Module.
+HexHunterX -- Live Host Detection Module.
 
 HTTP/HTTPS probing to identify alive hosts with status, title, and IP resolution.
 """
 
 import asyncio
 import socket
-from utils.logger import HexHunterLogger
+from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 
-logger = HexHunterLogger.get_logger("recon.hosts")
+logger = HexHunterXLogger.get_logger("recon.hosts")
 
 
 class HostProber:

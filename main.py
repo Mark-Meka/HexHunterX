@@ -1,6 +1,6 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """
-HexHunter -- Modular Penetration Testing Framework.
+HexHunterX -- Modular Penetration Testing Framework.
 
 A semi-automated pentesting framework that automates recon, scanning,
 fuzzing, and vulnerability detection for bug bounty and red team workflows.
@@ -10,7 +10,7 @@ Usage:
     python main.py -t target.com --recon --scan
     python main.py -t 192.168.1.0/24 --scan --threads 100
 
-Author: HexHunter Team
+Author: HexHunterX Team
 License: MIT
 """
 
@@ -24,10 +24,10 @@ from pathlib import Path
 import yaml
 
 from cli.interface import parse_args
-from core.engine import HexHunterEngine
-from utils.logger import print_banner, HexHunterLogger, console
+from core.engine import HexHunterXEngine
+from utils.logger import print_banner, HexHunterXLogger, console
 
-logger = HexHunterLogger.get_logger("main")
+logger = HexHunterXLogger.get_logger("main")
 
 
 def load_config(config_path: str) -> dict:
@@ -42,8 +42,8 @@ def load_config(config_path: str) -> dict:
         logger.warning(f"Config not found at {config_path}, using defaults")
         return {
             "general": {"threads": 50, "timeout": 10, "rate_limit": 10,
-                         "user_agent": "HexHunter/1.0", "max_retries": 3},
-            "database": {"path": "hexhunter.db"},
+                         "user_agent": "HexHunterX/1.0", "max_retries": 3},
+            "database": {"path": "HexHunterX.db"},
             "recon": {"subdomain_wordlist": "data/wordlists/common_subdomains.txt"},
             "scanning": {"dir_wordlist": "data/wordlists/common_dirs.txt",
                          "extensions": ["", ".php", ".html", ".js", ".json", ".txt"]},
@@ -118,7 +118,7 @@ async def run():
     console.print()
 
     # Create and run engine
-    engine = HexHunterEngine(config)
+    engine = HexHunterXEngine(config)
     await engine.run(
         target=cli_args["target"],
         phases=cli_args["phases"],

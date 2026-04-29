@@ -1,13 +1,13 @@
-# HexHunter -- File Structure & Architecture Guide
+﻿# HexHunterX -- File Structure & Architecture Guide
 
-> A complete breakdown of every file and folder in the HexHunter penetration testing framework, explaining **what** each component does and **how** it works under the hood.
+> A complete breakdown of every file and folder in the HexHunterX penetration testing framework, explaining **what** each component does and **how** it works under the hood.
 
 ---
 
 ## 📁 Project Root
 
 ```
-HexHunter/
+HexHunterX/
 ├── main.py                  ← Entry point (CLI launcher)
 ├── setup.py                 ← Package installer
 ├── requirements.txt         ← Python dependencies
@@ -20,7 +20,7 @@ HexHunter/
 ├── core/                    ← Execution engine & orchestration
 ├── data/                    ← Wordlists & static data
 ├── database/                ← SQLite persistence layer
-├── integrations/            ← External tool wrappers
+├── integrations/            ← External tool wrappers + Interactsh OOB client
 ├── logs/                    ← Runtime log output
 ├── modules/                 ← All scanning & detection logic
 │   ├── recon/               ← Reconnaissance phase
@@ -28,7 +28,7 @@ HexHunter/
 │   ├── fuzzing/             ← Fuzzing & payload injection
 │   └── vulns/               ← Vulnerability detectors
 ├── reports/                 ← Report generation & templates
-└── utils/                   ← Shared utilities & helpers
+└── utils/                   ← Shared utilities, auth & helpers
 ```
 
 ---
@@ -37,7 +37,7 @@ HexHunter/
 
 ### `main.py`
 **What:** The application entry point. Parses command-line arguments and launches the scan pipeline.  
-**How:** Uses `argparse` to accept target, phases to run (`--recon`, `--scan`, `--fuzz`, `--vuln`, `--report`), concurrency settings, and output preferences. Loads the YAML config, constructs a `HexHunterEngine`, and calls `engine.run()` inside `asyncio.run()`.
+**How:** Uses `argparse` to accept target, phases to run (`--recon`, `--scan`, `--fuzz`, `--vuln`, `--report`), concurrency settings, output preferences, authentication flags (`--cookie`, `--auth-token`, `--login-url`), and OOB detection flags (`--oob`). Loads the YAML config, constructs a `HexHunterXEngine`, and calls `engine.run()` inside `asyncio.run()`.
 
 ### `setup.py`
 **What:** Package installation script for `pip install -e .` (editable install).  
@@ -65,15 +65,15 @@ HexHunter/
 **What:** Package marker for the CLI module.
 
 ### `cli/interface.py`
-**What:** Rich terminal UI -- banners, progress bars, interactive prompts.  
-**How:** Uses the `rich` library to render a styled ASCII banner, animated scan progress indicators, and formatted result tables. Called by `main.py` to display the startup splash and real-time scan status.
+**What:** Argument parser and rich terminal UI -- banners, progress bars, interactive prompts.  
+**How:** Uses `argparse` with grouped argument sections (Scan Phases, Configuration, Output, Authentication, OOB Detection, Advanced) and the `rich` library for styled ASCII banner and formatted output. Authentication flags (`--cookie`, `--auth-token`, `--auth-header`, `--login-url/user/pass`) and OOB detection flags (`--oob`, `--oob-server`, `--oob-token`, `--oob-poll`, `--oob-wait`) are included. Called by `main.py` to display the startup splash and real-time scan status.
 
 ---
 
 ## 📂 `config/` -- Configuration
 
 ### `config/default.yaml`
-**What:** Default settings for every configurable aspect of HexHunter.  
+**What:** Default settings for every configurable aspect of HexHunterX.  
 **How:** YAML file loaded at startup. Controls:
 - **`general`** -- threads (50), rate limit (10 req/s), timeout (10s), user-agent string
 - **`recon`** -- wordlist paths, passive source toggles
@@ -87,7 +87,7 @@ The engine reads this at initialization and passes relevant sections to each mod
 
 ## 📂 `core/` -- Execution Engine
 
-> The brain of HexHunter. Orchestrates the entire scan pipeline.
+> The brain of HexHunterX. Orchestrates the entire scan pipeline.
 
 ### `core/__init__.py`
 **What:** Package marker.
@@ -95,14 +95,15 @@ The engine reads this at initialization and passes relevant sections to each mod
 ### `core/engine.py`
 **What:** The main orchestrator -- runs the 5-phase pipeline: Recon → Scanning → Fuzzing → Vulnerability Checks → Reporting.  
 **How:**
-1. **`initialize()`** -- Connects to SQLite, creates the async HTTP client with rate limiting.
+1. **`initialize()`** -- Connects to SQLite, creates the async HTTP client with rate limiting, sets up authentication (cookie/JWT/auto-login via `AuthManager`), and initializes the Interactsh OOB client if `--oob` is enabled.
 2. **`run(target, phases)`** -- Validates the target, stores it in the database, then runs each requested phase in sequence.
 3. **`_run_recon()`** -- Calls subdomain enumeration, host probing, and endpoint collection.
 4. **`_run_scanning()`** -- Runs port scanning, tech fingerprinting, and directory brute-forcing.
 5. **`_run_fuzzing()`** -- Discovers hidden parameters and fuzzes endpoints.
-6. **`_run_vuln_checks()`** -- Instantiates **10 vulnerability detectors** (XSS, SQLi, SSTI, SSRF, NoSQLi, CSRF, CORS, IDOR, Open Redirect, Misconfiguration) and runs each against every discovered endpoint. Findings are stored in the database with full evidence.
+6. **`_run_vuln_checks()`** -- Refreshes auth session if needed, starts OOB background polling, instantiates **10 vulnerability detectors** (XSS, SQLi, SSTI, SSRF, NoSQLi, CSRF, CORS, IDOR, Open Redirect, Misconfiguration) and passes the OOB client to blind-capable detectors (SSRF, SQLi, SSTI, XSS). After all checks, waits for late OOB callbacks and converts interactions to findings.
 7. **`_run_reporting()`** -- Generates JSON and HTML reports from the stored findings.
 8. **`_print_summary()`** -- Renders a final summary table with vulnerability counts and severity breakdown.
+9. **`shutdown()`** -- Stops OOB polling, deregisters from Interactsh, closes HTTP client and database.
 
 ### `core/decision.py`
 **What:** Smart decision engine that analyzes scan data and recommends next steps.  
@@ -156,7 +157,7 @@ The engine reads this at initialization and passes relevant sections to each mod
 
 ## 📂 `integrations/` -- External Tool Wrappers
 
-> Optional wrappers for popular security tools. HexHunter degrades gracefully if these tools aren't installed -- it falls back to built-in Python logic.
+> Optional wrappers for popular security tools. HexHunterX degrades gracefully if these tools aren't installed -- it falls back to built-in Python logic.
 
 ### `integrations/__init__.py`
 **What:** Package marker.
@@ -175,11 +176,22 @@ The engine reads this at initialization and passes relevant sections to each mod
 
 ### `integrations/nuclei.py`
 **What:** Wrapper for [nuclei](https://github.com/projectdiscovery/nuclei) -- template-based vulnerability scanning.  
-**How:** Runs `nuclei -u <url> -json -silent`, parses vulnerability findings into HexHunter's standard finding format.
+**How:** Runs `nuclei -u <url> -json -silent`, parses vulnerability findings into HexHunterX's standard finding format.
 
 ### `integrations/ffuf.py`
 **What:** Wrapper for [ffuf](https://github.com/ffuf/ffuf) -- web fuzzer.  
 **How:** Runs `ffuf -u <url>/FUZZ -w <wordlist> -json -silent`, parses discovered paths.
+
+### `integrations/interactsh.py`
+**What:** Pure-Python Interactsh client for blind/out-of-band vulnerability detection.  
+**How:** Registers with an Interactsh server (default: `oast.pro`) to obtain a unique callback domain. Generates per-test subdomains with unique tokens that map back to the (vuln_type, target_url, param_name) context. Provides:
+- `register()` / `deregister()` -- server lifecycle
+- `generate_payload(vuln_type, url, param)` -- creates a tracked callback subdomain
+- `get_oob_payloads(vuln_type, url, param)` -- returns ready-to-inject payloads (HTTP URLs, DNS exfil, template injection, XSS tags)
+- `poll()` -- checks the server for DNS/HTTP/SMTP callbacks
+- `start_polling()` / `stop_polling()` -- background async task
+- `wait_for_callbacks(timeout)` -- waits for late-arriving callbacks after scan completes
+- `get_findings()` -- converts interactions into deduplicated vulnerability findings
 
 ---
 
@@ -267,13 +279,14 @@ The engine reads this at initialization and passes relevant sections to each mod
 
 ### 📁 `modules/vulns/` -- Vulnerability Detection Phase
 
-> Each detector follows the same interface: `__init__(http_client)` and `async detect(url) -> list[dict]`.
+> Each detector follows the same interface: `__init__(http_client, oob_client=None)` and `async detect(url) -> list[dict]`.  
+> Detectors that support blind testing (XSS, SQLi, SSTI, SSRF) accept an optional `oob_client` parameter for OOB payload injection.
 
 #### `modules/vulns/__init__.py`
 **What:** Package marker.
 
 #### `modules/vulns/xss.py` -- Cross-Site Scripting
-**What:** Detects reflected and DOM-based XSS.  
+**What:** Detects reflected, DOM-based, and blind/stored XSS.  
 **How:**
 1. Injects a canary string into each parameter
 2. Checks if the canary is reflected in the HTML response
@@ -281,32 +294,36 @@ The engine reads this at initialization and passes relevant sections to each mod
 4. Sends context-appropriate payloads from `PayloadEngine.get_payloads("xss")`
 5. Verifies dangerous characters (`<script`, `onerror=`) survived encoding
 6. Scans JavaScript for DOM XSS source-sink patterns (`document.URL` → `innerHTML`)
+7. If OOB enabled: injects `<img src=http://{oob}>` and `<script src=http://{oob}>` for blind/stored XSS detection
 
 #### `modules/vulns/sqli.py` -- SQL Injection
-**What:** Detects error-based SQL injection with multi-database support.  
+**What:** Detects error-based and blind (OOB) SQL injection with multi-database support.  
 **How:**
 1. Gets baseline response for each parameter
 2. Appends SQL payloads from `PayloadEngine.get_payloads("sqli")`
 3. Scans response body for database error patterns (MySQL, PostgreSQL, MSSQL, Oracle, SQLite)
 4. Validates by ensuring the error wasn't present in the baseline
 5. Identifies the database type from the error signature
+6. If OOB enabled: injects DNS exfiltration payloads (`xp_dirtree`, `LOAD_FILE`, `UTL_HTTP`) for blind SQLi
 
 #### `modules/vulns/ssti.py` -- Server-Side Template Injection
-**What:** Detects SSTI and identifies the template engine.  
+**What:** Detects SSTI, identifies the template engine, and tests for blind SSTI via OOB.  
 **How:**
 1. Injects arithmetic probes (`{{7*7}}`, `${7*7}`, `<%= 7*7 %>`) into each parameter
 2. Checks if the computed value (`49`) appears in the response
 3. Validates the value wasn't in the baseline (false positive elimination)
 4. Identifies the engine (Jinja2, Twig, FreeMarker, ERB) based on which probe triggered
-5. Severity is **Critical** because SSTI typically leads to Remote Code Execution
+5. If OOB enabled: injects RCE-to-DNS payloads (`os.popen('nslookup {oob}')`) for blind SSTI
+6. Severity is **Critical** because SSTI typically leads to Remote Code Execution
 
 #### `modules/vulns/ssrf.py` -- Server-Side Request Forgery
-**What:** Detects SSRF via cloud metadata and internal service probing.  
+**What:** Detects SSRF via cloud metadata, internal service probing, and blind OOB callbacks.  
 **How:**
 1. Identifies URL-accepting parameters (names like `url`, `src`, `callback`, `file`, `proxy`)
 2. Injects SSRF payloads: AWS/GCP/Azure metadata URLs, localhost IP bypasses (decimal, hex, octal, IPv6), protocol smuggling (`file://`, `gopher://`, `dict://`)
 3. Detects success via: cloud metadata keywords in response (`ami-id`, `security-credentials`), timing anomalies (>3s vs. baseline), significant response size differences
-4. Severity is **Critical** for confirmed data leakage, **Medium** for blind/timing
+4. If OOB enabled: injects `http://{oob}` callback URLs for blind SSRF confirmation
+5. Severity is **Critical** for confirmed data leakage or OOB callback, **Medium** for blind/timing
 
 #### `modules/vulns/nosqli.py` -- NoSQL Injection
 **What:** Detects MongoDB/CouchDB injection via operator abuse.  
@@ -391,19 +408,31 @@ The engine reads this at initialization and passes relevant sections to each mod
 **What:** Package marker.
 
 ### `utils/network.py`
-**What:** Async HTTP client with retry, rate limiting, and evidence capture.  
+**What:** Async HTTP client with retry, rate limiting, auth injection, and evidence capture.  
 **How:** Built on `aiohttp`. Features:
 - **`RateLimiter`** -- Token-bucket algorithm limiting requests per second
-- **`AsyncHTTPClient`** -- GET/POST/HEAD methods with automatic retry (exponential backoff), configurable timeouts, redirect control, and SSL verification toggle
+- **`AsyncHTTPClient`** -- GET/POST/HEAD methods with automatic retry (exponential backoff), configurable timeouts, redirect control, SSL verification toggle, and auth support
+- **`set_auth(headers, cookies)`** -- Injects authentication headers and cookies into the session at runtime. Pre-loads credentials before `start()` and supports live updates.
+- **`CookieJar(unsafe=True)`** -- Enables cross-domain cookie sending so session cookies carry across all target subdomains
 - **`HTTPResponse`** dataclass -- Captures URL, status, headers, body, timing, and redirect chain for evidence storage
 - **`HTTPRequest`** dataclass -- Structured request representation for PoC reproduction
+
+### `utils/auth.py`
+**What:** Authentication manager for authenticated scanning behind login walls.  
+**How:** Handles 4 auth modes:
+- **Cookie injection** (`--cookie "session=abc"`) -- Parses raw cookie strings and injects them into the HTTP client's `CookieJar`
+- **Bearer/JWT** (`--auth-token "eyJ..."`) -- Sets the `Authorization: Bearer` header on all requests
+- **Custom header** (`--auth-header "X-API-Key: value"`) -- Adds any arbitrary header for API key auth
+- **Auto-login** (`--login-url + --login-user + --login-pass`) -- GETs the login page, extracts CSRF tokens (15+ known field names), detects username/password field names from the HTML, POSTs credentials, captures `Set-Cookie` headers, and validates login success via redirect or success keywords
+
+Also provides `check_session()` and `refresh_if_needed()` to verify auth state mid-scan and re-authenticate if the session expires.
 
 ### `utils/logger.py`
 **What:** Custom logging system with rich terminal output.  
 **How:** Uses `rich` for colorized console output with custom log levels:
 - `logger.finding(severity, type, url, detail)` -- Styled vulnerability alerts
 - `logger.success()` / `logger.warning()` / `logger.critical()` -- Phase status
-- Writes to both console and daily log file (`logs/hexhunter_YYYYMMDD.log`)
+- Writes to both console and daily log file (`logs/HexHunterX_YYYYMMDD.log`)
 
 ### `utils/validators.py`
 **What:** Input validation and sanitization.  
@@ -421,7 +450,7 @@ The engine reads this at initialization and passes relevant sections to each mod
 
 ## 📂 `logs/` -- Runtime Logs
 
-### `logs/hexhunter_YYYYMMDD.log`
+### `logs/HexHunterX_YYYYMMDD.log`
 **What:** Daily log file capturing all scan activity.  
 **How:** Auto-created by the logger. Contains timestamped entries for every phase, finding, and error. Useful for post-scan forensics and debugging.
 
@@ -431,7 +460,11 @@ The engine reads this at initialization and passes relevant sections to each mod
 
 ```
 main.py
-  └── HexHunterEngine.run()
+  └── HexHunterXEngine.run()
+        ├── initialize()
+        │     ├── database.connect()     → SQLite
+        │     ├── auth.py                → AuthManager (cookie/JWT/auto-login)
+        │     └── interactsh.py          → OOB client (if --oob)
         ├── Phase 1: RECON
         │     ├── subdomains.py   → enumerate subdomains
         │     ├── hosts.py        → probe alive hosts
@@ -444,16 +477,23 @@ main.py
         │     ├── params.py       → discover hidden params
         │     └── endpoints.py    → fuzz paths
         ├── Phase 4: VULN
-        │     ├── xss.py          → XSS detection
-        │     ├── sqli.py         → SQL injection
-        │     ├── ssti.py         → template injection
-        │     ├── ssrf.py         → SSRF detection
+        │     ├── auth refresh    → verify/renew session
+        │     ├── OOB polling     → start background task
+        │     ├── xss.py          → XSS detection (+ blind OOB)
+        │     ├── sqli.py         → SQL injection (+ blind OOB)
+        │     ├── ssti.py         → template injection (+ blind OOB)
+        │     ├── ssrf.py         → SSRF detection (+ blind OOB)
         │     ├── nosqli.py       → NoSQL injection
         │     ├── csrf.py         → CSRF detection
         │     ├── cors.py         → CORS misconfig
         │     ├── idor.py         → IDOR detection
         │     ├── redirect.py     → open redirect
-        │     └── misconfig.py    → header checks
-        └── Phase 5: REPORT
-              └── generator.py    → JSON + HTML output
+        │     ├── misconfig.py    → header checks
+        │     └── OOB collect     → wait for late callbacks → convert to findings
+        ├── Phase 5: REPORT
+        │     └── generator.py    → JSON + HTML output
+        └── shutdown()
+              ├── OOB deregister  → Interactsh cleanup
+              ├── HTTP close      → connection pool teardown
+              └── database close  → SQLite disconnect
 ```

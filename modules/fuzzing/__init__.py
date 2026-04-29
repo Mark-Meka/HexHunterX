@@ -1,1 +1,1 @@
-"""HexHunter fuzzing modules."""
+﻿"""HexHunterX fuzzing modules."""

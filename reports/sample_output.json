@@ -1,0 +1,59 @@
+{
+    "meta": {
+        "tool": "HexHunter",
+        "version": "1.0.0",
+        "generated_at": "2026-04-29T08:00:00Z",
+        "scan_id": 1
+    },
+    "target": {
+        "domain": "example.com",
+        "ip": "93.184.216.34",
+        "scope": "in-scope",
+        "target_type": "domain"
+    },
+    "summary": {
+        "total_subdomains": 42,
+        "alive_hosts": 18,
+        "total_endpoints": 156,
+        "open_ports": 12,
+        "total_vulnerabilities": 7,
+        "severity_counts": {
+            "critical": 1,
+            "high": 2,
+            "medium": 3,
+            "low": 1,
+            "info": 0
+        }
+    },
+    "vulnerabilities": [
+        {
+            "vuln_type": "SQL Injection (Error-based, MySQL)",
+            "severity": "critical",
+            "title": "SQL Injection in parameter 'id'",
+            "description": "Error-based SQL injection detected in parameter 'id' on /api/users endpoint.",
+            "evidence": "Payload: ' OR '1'='1\nDatabase: MySQL\nError: check the manual that corresponds to your MySQL server version",
+            "request_data": "GET /api/users?id=' OR '1'='1",
+            "response_data": "HTTP 500 - SQL syntax error...",
+            "reproduction": "1. Navigate to /api/users?id=' OR '1'='1\n2. Observe database error",
+            "confidence": "high"
+        },
+        {
+            "vuln_type": "XSS (Reflected)",
+            "severity": "high",
+            "title": "Reflected XSS in parameter 'q'",
+            "description": "The search parameter reflects user input without sanitization.",
+            "evidence": "Payload: <script>alert(1)</script>\nContext: html_body",
+            "request_data": "GET /search?q=<script>alert(1)</script>",
+            "response_data": "...results for <script>alert(1)</script>...",
+            "confidence": "high"
+        },
+        {
+            "vuln_type": "CORS Misconfiguration",
+            "severity": "medium",
+            "title": "CORS reflects arbitrary origin",
+            "description": "The server reflects the Origin header in Access-Control-Allow-Origin.",
+            "evidence": "ACAO: https://evil.test\nOrigin: https://evil.test",
+            "confidence": "high"
+        }
+    ]
+}

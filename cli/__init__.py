@@ -1,0 +1,1 @@
+"""HexHunter CLI module."""

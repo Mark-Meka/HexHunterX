@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunterX -- Server-Side Request Forgery (SSRF) Detection Module.
 
 Detect SSRF by injecting internal/cloud metadata URLs into URL-accepting
@@ -179,21 +179,25 @@ class SSRFDetector:
         return findings
 
     def _identify_url_params(self, params: dict) -> list[str]:
-        """Identify parameters likely to accept URLs."""
+        """Identify parameters likely to accept URLs.
+
+        Only returns params that ALREADY exist in the query string and
+        whose name or value suggests URL input.  We do NOT blindly inject
+        common param names -- that causes massive false-positive floods on
+        sites that ignore unknown parameters.
+        """
         found = []
         for name in params:
+            # Name matches a known URL-accepting pattern
             if name.lower() in URL_PARAMS:
                 found.append(name)
-            # Check if current value looks like a URL
+                continue
+            # Current value looks like a URL
             vals = params[name]
             if vals and isinstance(vals, list):
                 val = vals[0]
                 if val.startswith(("http://", "https://", "//")):
                     found.append(name)
-
-        # If no URL params found in the existing query, test common ones
-        if not found:
-            found = URL_PARAMS[:10]  # Test top 10 common URL params
 
         return list(set(found))
 
@@ -212,16 +216,29 @@ class SSRFDetector:
 
     @staticmethod
     def _response_differs(baseline, resp) -> bool:
-        """Check if the SSRF response differs meaningfully from baseline."""
-        if resp.status_code != baseline.status_code:
-            return True
+        """Check if the SSRF response differs meaningfully from baseline.
 
+        Tight thresholds to avoid false positives:
+        - Status code change alone is NOT enough (many sites return 200 for
+          every request).
+        - Requires a large absolute size difference (>500 bytes) AND a
+          dramatic size ratio change.
+        - Identical bodies are always safe.
+        """
         if resp.body == baseline.body:
             return False
 
-        size_ratio = len(resp.body) / max(len(baseline.body), 1)
+        baseline_len = max(len(baseline.body), 1)
+        resp_len = len(resp.body)
+        abs_diff = abs(resp_len - baseline_len)
+
+        # Ignore small fluctuations (ads, CSRF tokens, timestamps, etc.)
+        if abs_diff < 500:
+            return False
+
+        size_ratio = resp_len / baseline_len
         # Very different size = server fetched something different
-        if size_ratio < 0.3 or size_ratio > 3.0:
+        if size_ratio < 0.2 or size_ratio > 5.0:
             return True
 
         return False

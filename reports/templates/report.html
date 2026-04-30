@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -287,34 +287,75 @@
             {% endif %}
         </div>
 
-        <!-- Subdomains -->
+        <!-- Alive Subdomains -->
         <div class="section">
-            <h2>🌐 Subdomains</h2>
-            {% if subdomains %}
+            <h2>🟢 Alive Subdomains
+                <span class="badge badge-low" style="font-size:0.7rem;vertical-align:middle;margin-left:0.5rem;">
+                    {{ subdomains | selectattr('is_alive') | list | length }}
+                </span>
+            </h2>
+            {% set alive_subs = subdomains | selectattr('is_alive') | list %}
+            {% if alive_subs %}
             <table>
                 <thead>
                     <tr>
                         <th>Subdomain</th>
-                        <th>IP</th>
+                        <th>IP Address</th>
                         <th>Status</th>
                         <th>Title</th>
-                        <th>Alive</th>
                     </tr>
                 </thead>
                 <tbody>
-                {% for sub in subdomains %}
+                {% for sub in alive_subs %}
                     <tr>
-                        <td>{{ sub.name }}</td>
+                        <td><strong>{{ sub.name }}</strong></td>
                         <td>{{ sub.ip or '—' }}</td>
-                        <td>{{ sub.status_code or '—' }}</td>
+                        <td>
+                            <span class="badge {% if sub.status_code and sub.status_code < 400 %}badge-low{% elif sub.status_code and sub.status_code < 500 %}badge-medium{% else %}badge-high{% endif %}" style="font-size:0.75rem;">
+                                {{ sub.status_code or '—' }}
+                            </span>
+                        </td>
                         <td>{{ sub.title or '—' }}</td>
-                        <td>{% if sub.is_alive %}✅{% else %}❌{% endif %}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
             {% else %}
-            <p style="color: var(--text-secondary);">No subdomains found.</p>
+            <p style="color: var(--text-secondary);">No alive subdomains found.</p>
+            {% endif %}
+        </div>
+
+        <!-- Dead Subdomains -->
+        <div class="section">
+            <h2>🔴 Dead Subdomains
+                <span class="badge badge-critical" style="font-size:0.7rem;vertical-align:middle;margin-left:0.5rem;">
+                    {{ subdomains | rejectattr('is_alive') | list | length }}
+                </span>
+            </h2>
+            {% set dead_subs = subdomains | rejectattr('is_alive') | list %}
+            {% if dead_subs %}
+            <table>
+                <thead>
+                    <tr>
+                        <th>Subdomain</th>
+                        <th>IP Address</th>
+                        <th>Reason</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for sub in dead_subs %}
+                    <tr>
+                        <td style="color: var(--text-secondary);">{{ sub.name }}</td>
+                        <td>{{ sub.ip or '—' }}</td>
+                        <td style="color: var(--critical);">
+                            {% if sub.status_code %}HTTP {{ sub.status_code }}{% else %}No Response{% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <p style="color: var(--text-secondary);">No dead subdomains found.</p>
             {% endif %}
         </div>
 

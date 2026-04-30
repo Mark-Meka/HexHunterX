@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunterX -- Open Redirect Detection Module.
 
 Detect open redirect vulnerabilities via parameter injection.
@@ -43,10 +43,18 @@ class OpenRedirectDetector:
         base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
         existing_params = parse_qs(parsed.query)
 
-        # Determine which params to test
-        test_params = list(existing_params.keys())
+        # Determine which params to test:
+        # 1. If the URL already has query params, only test those whose
+        #    names match known redirect-related parameter names.
+        # 2. If the URL has NO query params at all, skip -- we don't want
+        #    to blindly inject ?url=, ?redirect= etc. on every page.
+        test_params = [
+            p for p in existing_params
+            if p.lower() in REDIRECT_PARAMS
+        ]
+
         if not test_params:
-            test_params = REDIRECT_PARAMS
+            return findings
 
         for param in test_params:
             for payload in self._get_payloads():
@@ -116,18 +124,41 @@ class OpenRedirectDetector:
         ]
 
     def _is_external_redirect(self, location: str) -> bool:
-        """Check if a Location header points to an external domain."""
+        """Check if a Location header ACTUALLY redirects to an external domain.
+
+        IMPORTANT: We parse the Location URL and inspect the *host* component
+        only.  A naive substring check (``EVIL_DOMAIN in location``) causes
+        false positives when the target server redirects to ITSELF with the
+        payload still sitting in a query parameter value, e.g.:
+            Location: https://target.com/?out=https://evil.HexHunterX.test
+        That is NOT an open redirect -- the browser goes to target.com.
+        """
         if not location:
             return False
-        if self.EVIL_DOMAIN in location:
-            return True
+
         try:
             parsed = urlparse(location)
-            if parsed.hostname and parsed.hostname != self.EVIL_DOMAIN:
-                # Generic external redirect detection
-                return parsed.scheme in ("http", "https") and parsed.hostname
+            host = (parsed.hostname or "").lower()
+
+            # Direct match: host IS our evil domain
+            if host == self.EVIL_DOMAIN.lower():
+                return True
+
+            # Protocol-relative URLs like //evil.HexHunterX.test/path
+            if location.startswith("//"):
+                pr_parsed = urlparse("https:" + location)
+                if (pr_parsed.hostname or "").lower() == self.EVIL_DOMAIN.lower():
+                    return True
+
+            # Backslash-trick: /\evil.HexHunterX.test  (browsers treat \ as /)
+            if location.startswith("/\\"):
+                bs_parsed = urlparse("https:" + location.replace("\\", "/"))
+                if (bs_parsed.hostname or "").lower() == self.EVIL_DOMAIN.lower():
+                    return True
+
         except Exception:
             pass
+
         return False
 
     @staticmethod

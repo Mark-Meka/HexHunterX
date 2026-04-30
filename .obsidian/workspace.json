@@ -11,10 +11,14 @@
             "id": "c3558838277177d1",
             "type": "leaf",
             "state": {
-              "type": "empty",
-              "state": {},
+              "type": "markdown",
+              "state": {
+                "file": "FILE_STRUCTURE.md",
+                "mode": "source",
+                "source": false
+              },
               "icon": "lucide-file",
-              "title": "New tab"
+              "title": "FILE_STRUCTURE"
             }
           }
         ]
@@ -181,19 +185,18 @@
   },
   "active": "c3558838277177d1",
   "lastOpenFiles": [
+    "FEATURES.md",
+    "README.md",
+    "HexHunterX.db-shm",
+    "HexHunterX.db-wal",
+    "HexHunterX.db-journal",
+    "HexHunterX.db",
     "data/wordlists/common_subdomains.txt",
     "data/wordlists/common_params.txt",
     "data/wordlists/common_dirs.txt",
     "data/wordlists",
     "data",
     "utils/__pycache__/__init__.cpython-314.pyc",
-    "utils/__pycache__/validators.cpython-314.pyc",
-    "utils/__pycache__/network.cpython-314.pyc",
-    "utils/__pycache__/helpers.cpython-314.pyc",
-    "utils/__pycache__/logger.cpython-314.pyc",
-    "utils/__pycache__/auth.cpython-314.pyc",
-    "FILE_STRUCTURE.md",
-    "FEATURES.md",
-    "README.md"
+    "FILE_STRUCTURE.md"
   ]
 }

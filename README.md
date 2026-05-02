@@ -1,4 +1,4 @@
-﻿<div align="center">
+<div align="center">
 <pre>
 ██╗  ██╗███████╗██╗  ██╗██╗  ██╗██╗   ██╗███╗   ██╗████████╗███████╗██████╗ ██╗  ██╗
 ██║  ██║██╔════╝╚██╗██╔╝██║  ██║██║   ██║████╗  ██║╚══██╔══╝██╔════╝██╔══██╗╚██╗██╔╝
@@ -32,19 +32,20 @@ Built with clean architecture, async-first design, and extensible module system 
 
 ## ✨ Features
 
-| Category | Capabilities |
-|----------|-------------|
-| **Recon** | Subdomain enumeration (passive + active + permutations), live host probing, ASN mapping, endpoint collection (crawling + JS parsing + Wayback Machine) |
-| **Scanning** | Async port scanning, service detection, directory brute-force, technology fingerprinting |
-| **Fuzzing** | Parameter discovery, hidden endpoint detection, wordlist management, 246-payload injection engine |
-| **Vulnerability Detection** | 10 detectors: XSS, SQLi, SSTI, SSRF, NoSQLi, CSRF, CORS, IDOR, Open Redirect, Misconfiguration |
-| **Authenticated Scanning** | Cookie, JWT/Bearer, custom header, and auto-login (form POST with CSRF extraction) |
-| **Blind/OOB Detection** | Interactsh integration for blind SSRF, blind SQLi, blind SSTI, and blind/stored XSS via DNS/HTTP callbacks |
-| **Integrations** | subfinder, httpx, ffuf, nuclei, Interactsh (graceful fallback to built-in alternatives) |
-| **Reporting** | Professional HTML reports, structured JSON output, severity classification, evidence capture |
-| **Intelligence** | Smart decision engine adapts scanning based on target profile |
-| **Performance** | Async I/O, rate limiting, connection pooling, retry with backoff, deduplication |
-| **Storage** | SQLite persistence, scan resume, full CRUD operations |
+| Category                    | Capabilities                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Recon**                   | Subdomain enumeration (passive + active + permutations), live host probing, ASN mapping, endpoint collection (crawling + JS parsing + Wayback Machine) |
+| **Scanning**                | Async port scanning, service detection, directory brute-force, technology fingerprinting                                                               |
+| **Fuzzing**                 | Parameter discovery, hidden endpoint detection, wordlist management, 246-payload injection engine                                                      |
+| **Vulnerability Detection** | 10 detectors: XSS, SQLi, SSTI, SSRF, NoSQLi, CSRF, CORS, IDOR, Open Redirect, Misconfiguration                                                         |
+| **Authenticated Scanning**  | Cookie, JWT/Bearer, custom header, and auto-login (form POST with CSRF extraction)                                                                     |
+| **Blind/OOB Detection**     | Interactsh integration for blind SSRF, blind SQLi, blind SSTI, and blind/stored XSS via DNS/HTTP callbacks                                             |
+| **Integrations**            | subfinder, httpx, ffuf, nuclei, Interactsh (graceful fallback to built-in alternatives)                                                                |
+| **Reporting**               | Professional HTML reports, structured JSON output, severity classification, evidence capture                                                           |
+| **Intelligence**            | Smart decision engine adapts scanning based on target profile                                                                                          |
+| **AI Integration**          | Opt-in AI Analysis via OpenRouter (Claude-3.5): False positive triage, anomaly detection, context-aware payloads, and executive reporting              |
+| **Performance**             | Async I/O, rate limiting, connection pooling, retry with backoff, deduplication                                                                        |
+| **Storage**                 | SQLite persistence, scan resume, full CRUD operations                                                                                                  |
 
 ---
 
@@ -61,6 +62,13 @@ HexHunterX/
 │   ├── engine.py                    # Execution engine & workflow controller
 │   ├── scheduler.py                 # Task scheduling & concurrency
 │   └── decision.py                  # Smart decision engine
+│
+├── ai/                              # 🤖 AI Analysis Layer
+│   ├── client.py                    # OpenRouter API wrapper
+│   ├── triage.py                    # False positive filter
+│   ├── anomaly.py                   # Statistical response anomaly detection
+│   ├── payloads.py                  # Context-aware payload generation
+│   └── report_writer.py             # Executive summary generator
 │
 ├── modules/                         # 🔧 Scan Modules
 │   ├── recon/                       # Reconnaissance
@@ -566,6 +574,12 @@ Every detector runs automatically during the `--vuln` phase and produces finding
 | `--oob-token STRING` | Auth token for private Interactsh server | none |
 | `--oob-poll N` | OOB polling interval in seconds | 5 |
 | `--oob-wait N` | Seconds to wait for late OOB callbacks | 30 |
+| **AI Integration** | | |
+| `--ai` | Enable all AI features at once | off |
+| `--ai-triage` | Enable only AI false positive filtering | off |
+| `--ai-report` | Enable only AI narrative report generation | off |
+| `--ai-payloads` | Enable only context-aware payload suggestions | off |
+| `--ai-key STRING` | OpenRouter API key (overrides OPENROUTER_API_KEY env var) | none |
 | **Advanced** | | |
 | `--resume` | Resume scan from database (skip completed phases) | off |
 | `--db PATH` | SQLite database file path | `HexHunterX.db` |

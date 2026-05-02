@@ -1,4 +1,4 @@
-﻿# HexHunterX -- Feature Deep Dive
+# HexHunterX -- Feature Deep Dive
 
 A detailed breakdown of every feature in HexHunterX: how it works, how it was built, and the efficiency techniques behind each component.
 
@@ -21,6 +21,7 @@ A detailed breakdown of every feature in HexHunterX: how it works, how it was bu
 13. [Logging System](#13-logging-system)
 14. [Authenticated Scanning](#14-authenticated-scanning)
 15. [Blind/OOB Detection](#15-blindoob-detection)
+16. [AI Integration](#16-ai-integration)
 
 ---
 
@@ -798,6 +799,48 @@ CLI flags (--cookie / --auth-token / --login-url + creds)
 
 - **Refresh**: Before the vuln phase, `refresh_if_needed()` GETs a protected page. If it gets a login page back (detected via keywords), it re-authenticates automatically.
 - **Cross-domain**: `CookieJar(unsafe=True)` ensures cookies are sent to all subdomains of the target, not just the exact login domain.
+
+---
+
+## 16. AI Integration
+
+**Files:** `ai/client.py`, `ai/triage.py`, `ai/anomaly.py`, `ai/payloads.py`, `ai/report_writer.py`
+
+### How It Runs
+
+The AI integration uses the OpenRouter API (defaults to `anthropic/claude-sonnet-4-5`) to add a layer of intelligence across the entire pentesting lifecycle. It operates in four main areas:
+
+1. **Anomaly Detection**: Passive monitoring of HTTP responses.
+2. **Context-Aware Payloads**: Dynamic payload generation during fuzzing.
+3. **False Positive Triage**: Post-detection analysis of findings.
+4. **Executive Reporting**: Post-scan aggregation and summarization.
+
+### Anomaly Detection
+
+**File:** `ai/anomaly.py`
+Wired into the `AsyncHTTPClient` (`utils/network.py`). Every single HTTP response's elapsed time and body size are fed into the `AnomalyDetector`. It uses Python's `statistics` module to maintain a rolling mean and standard deviation (baseline). If a new request deviates by more than 2 standard deviations (after a minimum of 10 requests), it is flagged and the anomaly metadata is attached to the response.
+
+### Context-Aware Payloads
+
+**File:** `ai/payloads.py`
+Wired into the `PayloadEngine` (`modules/fuzzing/payloads.py`). When a vulnerability module requests payloads, the engine checks if the decision engine previously detected a specific tech stack (e.g., `React`, `PHP`) or a Web Application Firewall. If so, it asks the AI to generate 10 highly targeted, evasion-focused payloads tailored specifically to that stack. These are prepended to the standard wordlists.
+
+### False Positive Triage
+
+**File:** `ai/triage.py`
+Wired into the core execution engine (`core/engine.py`). After all vulnerability detectors finish, each finding is passed to the AI Triage module. The AI is provided with the vulnerability type, the payload used, the raw HTTP request, and a snippet of the raw HTTP response. It acts as a senior security analyst, outputting a strict JSON object with a `verdict` (TRUE_POSITIVE or FALSE_POSITIVE), `confidence`, `reasoning`, and `recommendation`. This verdict is saved to the database and appears in the final report.
+
+### Executive Reporting
+
+**File:** `ai/report_writer.py`
+Wired into the Report Generator (`reports/generator.py`). After the scan concludes, the AI analyzes the entire list of confirmed findings to write a 3-sentence executive summary, construct a realistic attack chain, and prioritize remediation efforts. This is injected directly into the HTML report template.
+
+### Efficiency & Safety
+
+- **Graceful Degradation**: If the AI API is unreachable or the API key is missing, the scan continues normally without crashing.
+- **Opt-in**: All AI features are opt-in via CLI flags (`--ai`, `--ai-triage`, `--ai-report`, `--ai-payloads`).
+- **Async Execution**: AI API calls are completely non-blocking, utilizing `httpx` to ensure the scan pipeline doesn't stall while waiting for the LLM.
+
 
 ### Efficiency
 

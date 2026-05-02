@@ -1,4 +1,4 @@
-﻿# HexHunterX -- File Structure & Architecture Guide
+# HexHunterX -- File Structure & Architecture Guide
 
 > A complete breakdown of every file and folder in the HexHunterX penetration testing framework, explaining **what** each component does and **how** it works under the hood.
 
@@ -22,6 +22,7 @@ HexHunterX/
 ├── database/                ← SQLite persistence layer
 ├── integrations/            ← External tool wrappers + Interactsh OOB client
 ├── logs/                    ← Runtime log output
+├── ai/                      ← AI Integration Layer
 ├── modules/                 ← All scanning & detection logic
 │   ├── recon/               ← Reconnaissance phase
 │   ├── scanning/            ← Active scanning phase
@@ -192,6 +193,35 @@ The engine reads this at initialization and passes relevant sections to each mod
 - `start_polling()` / `stop_polling()` -- background async task
 - `wait_for_callbacks(timeout)` -- waits for late-arriving callbacks after scan completes
 - `get_findings()` -- converts interactions into deduplicated vulnerability findings
+
+---
+
+## 📂 `ai/` -- AI Integration Layer
+
+> Opt-in advanced features powered by the OpenRouter API (Claude 3.5 Sonnet) that add "senior pentester" decision-making capabilities.
+
+### `ai/__init__.py`
+**What:** Package marker.
+
+### `ai/client.py`
+**What:** Wrapper around the OpenRouter API.
+**How:** Provides `ask_ai()` (sync) and `ask_ai_async()` (async) methods. Uses `httpx` and `requests`. Handles API authentication via `OPENROUTER_API_KEY` and handles rate limits/errors gracefully.
+
+### `ai/anomaly.py`
+**What:** Statistical anomaly detector for HTTP responses.
+**How:** Uses Python's `statistics` module to maintain a rolling mean and standard deviation of HTTP response times and sizes. Flags responses that deviate by more than a configurable multiplier (default: 2.0x standard deviation).
+
+### `ai/payloads.py`
+**What:** Context-aware payload generator.
+**How:** Asks the AI for highly targeted payloads specifically crafted for the detected tech stack or Web Application Firewall (WAF) instead of using generic payload lists.
+
+### `ai/triage.py`
+**What:** False positive filter.
+**How:** Evaluates raw findings by looking at the vulnerability type, payload, raw request, and raw response snippet. Returns a structured JSON verdict (TRUE_POSITIVE or FALSE_POSITIVE), confidence, reasoning, and next-step recommendations.
+
+### `ai/report_writer.py`
+**What:** Executive summary generator.
+**How:** Summarizes the final vulnerability list into a 3-sentence executive summary, a potential critical attack chain, and top remediation priorities.
 
 ---
 

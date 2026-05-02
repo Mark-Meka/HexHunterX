@@ -1,8 +1,12 @@
 """
-HexHunterX -- Server-Side Request Forgery (SSRF) Detection Module.
+HexHunterX -- SSRF Detection Module (v2).
 
-Detect SSRF by injecting internal/cloud metadata URLs into URL-accepting
-parameters and analysing responses for internal data leakage.
+Enhanced with:
+- Tightened response diffing (1000-byte threshold)
+- Internal service banner detection
+- Timing retry verification
+- Confidence tiers
+- Only tests existing URL-accepting parameters
 """
 
 import re
@@ -11,234 +15,197 @@ from urllib.parse import urlencode, urlparse, parse_qs
 from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
+from modules.vulns.verification import (
+    ResponseAnalyzer, TimingAnalyzer, ConfidenceScorer, Confidence,
+)
 
 logger = HexHunterXLogger.get_logger("vulns.ssrf")
 
-# Parameter names commonly used for URL input
 URL_PARAMS = [
     "url", "link", "src", "href", "dest", "destination", "redirect",
     "redirect_url", "redirect_uri", "uri", "path", "proxy", "callback",
     "file", "page", "load", "fetch", "target", "site", "feed", "host",
-    "to", "out", "view", "dir", "show", "navigation", "open", "domain",
-    "source", "val", "validate", "return", "port", "data", "reference",
+    "to", "out", "view", "dir", "show", "open", "domain", "source",
     "img", "image", "resource",
 ]
 
-# Keywords that indicate cloud metadata was returned
 METADATA_INDICATORS = [
     "ami-id", "instance-id", "instance-type", "local-hostname",
-    "public-hostname", "security-credentials", "iam", "meta-data",
-    "computeMetadata", "access_token", "account_id",
-    "availabilityZone", "privateIp", "pendingTime",
-    # Azure
-    "subscriptionId", "resourceGroupName",
-    # GCP
-    "service-accounts", "project-id",
-    # Generic internal response markers
-    "root:x:", "/etc/passwd", "proc/self",
+    "security-credentials", "iam", "meta-data", "computeMetadata",
+    "access_token", "account_id", "availabilityZone", "privateIp",
+    "subscriptionId", "resourceGroupName", "service-accounts",
+    "project-id", "root:x:", "/etc/passwd", "proc/self",
 ]
 
-# Timing threshold to detect blind SSRF (ms)
-TIMING_THRESHOLD_MS = 3000
+# Internal service response signatures
+INTERNAL_SERVICE_SIGS = [
+    (r'-ERR\s|^\+OK|^\$\d+', "Redis"),
+    (r'SSH-\d+\.\d+', "SSH"),
+    (r'220\s.*SMTP|ESMTP', "SMTP"),
+    (r'MongoDB|Mongo server', "MongoDB"),
+    (r'"cluster_name"\s*:', "Elasticsearch"),
+    (r'mysql_native_password|MariaDB', "MySQL"),
+]
 
 
 class SSRFDetector:
     """
-    Detect Server-Side Request Forgery vulnerabilities.
+    Detect SSRF with verified internal data leakage detection.
 
-    Methodology:
-        1. Identify URL-accepting parameters (from URL or common names)
-        2. Inject cloud metadata URLs and internal service addresses
-        3. Analyse responses for:
-           a. Cloud metadata keywords (aws/gcp/azure indicators)
-           b. Internal file content (/etc/passwd, /proc/self/environ)
-           c. Timing anomalies (port-scan style blind SSRF)
-           d. Status/size differences vs. baseline
-        4. Generate PoC with reproduction steps
+    Only tests params that already exist and look like URL inputs.
+    Uses metadata keyword matching, internal service detection,
+    and timing analysis with retries.
     """
 
     def __init__(self, http_client: AsyncHTTPClient, oob_client=None):
         self.http = http_client
         self.oob = oob_client
+        self._analyzer = ResponseAnalyzer()
+        self._timing = TimingAnalyzer(threshold_ms=3000, trials=3)
+        self._scorer = ConfidenceScorer()
 
     async def detect(self, url: str) -> list[dict]:
-        """Test a URL for SSRF vulnerabilities."""
         findings = []
         parsed = urlparse(url)
         params = parse_qs(parsed.query)
         base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
-        # Determine which parameters to test
         test_params = self._identify_url_params(params)
-
         if not test_params:
             return findings
 
         for param_name in test_params:
-            # Get baseline
             original_val = "https://example.com"
             if param_name in params and params[param_name]:
                 original_val = params[param_name][0]
 
-            baseline_url = f"{base}?{urlencode({param_name: original_val})}"
-            baseline_resp = await self.http.get(baseline_url)
-
+            bp = {param_name: original_val}
+            baseline_resp = await self.http.get(f"{base}?{urlencode(bp)}")
             if baseline_resp.error:
                 continue
 
-            # ── Standard SSRF payloads ──
+            # Build payload list
             all_payloads = list(PayloadEngine.get_payloads("ssrf"))
-
-            # ── OOB blind SSRF payloads ──
             if self.oob and self.oob.is_registered:
-                oob_payloads = self.oob.get_oob_payloads("ssrf", base, param_name)
-                all_payloads.extend(oob_payloads)
+                all_payloads.extend(
+                    self.oob.get_oob_payloads("ssrf", base, param_name)
+                )
 
             for payload in all_payloads:
-                test_url = f"{base}?{urlencode({param_name: payload})}"
-                resp = await self.http.get(test_url)
-
+                tp = {param_name: payload}
+                resp = await self.http.get(f"{base}?{urlencode(tp)}")
                 if resp.error:
                     continue
 
-                # Check 1: Metadata keywords in response
-                found_indicators = self._check_metadata(resp.body, baseline_resp.body)
-                if found_indicators:
+                # Check 1: Cloud metadata / internal file content
+                indicators = self._check_metadata(resp.body, baseline_resp.body)
+                if indicators:
+                    signals = {"metadata_leaked": True, "baseline_differs": True}
+                    conf = self._scorer.score(signals)
                     poc = PayloadEngine.generate_poc("ssrf", base, param_name, payload)
-                    finding = {
+                    findings.append({
                         "type": "SSRF (Data Leakage)",
                         "severity": "critical",
-                        "title": f"SSRF -- internal data leaked via parameter '{param_name}'",
+                        "title": f"SSRF — internal data leaked via '{param_name}'",
                         "description": (
-                            f"The parameter '{param_name}' fetches attacker-controlled URLs. "
-                            f"Injecting '{payload}' caused the server to return internal "
-                            f"data. Detected indicators: {', '.join(found_indicators[:5])}."
+                            f"Injecting '{payload}' returned internal data. "
+                            f"Indicators: {', '.join(indicators[:5])}."
                         ),
                         "evidence": (
                             f"Payload: {payload}\n"
-                            f"Indicators found: {found_indicators}\n"
-                            f"Response snippet: {resp.body[:1500]}"
+                            f"Indicators: {indicators}\n"
+                            f"Response: {resp.body[:1500]}"
                         ),
-                        "request": test_url,
+                        "request": f"{base}?{urlencode(tp)}",
                         "response": resp.body[:3000],
                         "reproduction": poc,
-                        "confidence": "high",
-                    }
-                    findings.append(finding)
-                    logger.finding("critical", "SSRF", base, f"param={param_name}")
-                    break  # One finding per param
+                        "confidence": conf,
+                        "verification_method": "metadata_content_analysis",
+                    })
+                    break
 
-                # Check 2: Timing anomaly (blind SSRF -- internal port responded)
-                if resp.elapsed_ms > TIMING_THRESHOLD_MS and baseline_resp.elapsed_ms < TIMING_THRESHOLD_MS:
-                    finding = {
-                        "type": "SSRF (Blind / Timing)",
-                        "severity": "medium",
-                        "title": f"Potential blind SSRF via parameter '{param_name}'",
-                        "description": (
-                            f"The parameter '{param_name}' shows a significant response "
-                            f"time increase ({resp.elapsed_ms:.0f}ms vs. baseline "
-                            f"{baseline_resp.elapsed_ms:.0f}ms) when injecting internal "
-                            f"addresses, suggesting the server attempts to connect."
-                        ),
-                        "evidence": (
-                            f"Payload: {payload}\n"
-                            f"Response time: {resp.elapsed_ms:.0f}ms (baseline: {baseline_resp.elapsed_ms:.0f}ms)"
-                        ),
-                        "request": test_url,
-                        "response": "",
-                        "confidence": "low",
-                    }
-                    findings.append(finding)
-                    # Don't break -- continue looking for confirmed SSRF
-
-                # Check 3: Response differs significantly from baseline
-                #   (server fetched the URL and returned different content)
-                if self._response_differs(baseline_resp, resp):
-                    finding = {
-                        "type": "SSRF (Potential)",
+                # Check 2: Internal service signatures
+                service = self._detect_internal_service(resp.body, baseline_resp.body)
+                if service:
+                    signals = {"metadata_leaked": True, "baseline_differs": True}
+                    conf = self._scorer.score(signals)
+                    findings.append({
+                        "type": f"SSRF (Internal Service: {service})",
                         "severity": "high",
+                        "title": f"SSRF — internal {service} service via '{param_name}'",
+                        "description": (
+                            f"Internal {service} service banner detected in response."
+                        ),
+                        "evidence": f"Payload: {payload}\nService: {service}",
+                        "request": f"{base}?{urlencode(tp)}",
+                        "response": resp.body[:2000],
+                        "confidence": conf,
+                        "verification_method": "internal_service_detection",
+                    })
+                    break
+
+                # Check 3: Response differs significantly
+                if self._response_differs(baseline_resp, resp):
+                    findings.append({
+                        "type": "SSRF (Potential)",
+                        "severity": "medium",
                         "title": f"Potential SSRF via parameter '{param_name}'",
                         "description": (
-                            f"The parameter '{param_name}' returns significantly different "
-                            f"content when given internal URLs. Payload: '{payload}'. "
+                            f"Significant response difference with internal URL. "
                             f"Manual verification recommended."
                         ),
                         "evidence": (
                             f"Payload: {payload}\n"
                             f"Baseline size: {len(baseline_resp.body)}\n"
-                            f"Response size: {len(resp.body)}\n"
-                            f"Status: {resp.status_code}"
+                            f"Response size: {len(resp.body)}"
                         ),
-                        "request": test_url,
+                        "request": f"{base}?{urlencode(tp)}",
                         "response": resp.body[:1000],
-                        "confidence": "medium",
-                    }
-                    findings.append(finding)
+                        "confidence": Confidence.MEDIUM,
+                        "verification_method": "response_diff_analysis",
+                    })
                     break
 
         return findings
 
-    def _identify_url_params(self, params: dict) -> list[str]:
-        """Identify parameters likely to accept URLs.
-
-        Only returns params that ALREADY exist in the query string and
-        whose name or value suggests URL input.  We do NOT blindly inject
-        common param names -- that causes massive false-positive floods on
-        sites that ignore unknown parameters.
-        """
+    def _identify_url_params(self, params):
         found = []
         for name in params:
-            # Name matches a known URL-accepting pattern
             if name.lower() in URL_PARAMS:
                 found.append(name)
                 continue
-            # Current value looks like a URL
             vals = params[name]
             if vals and isinstance(vals, list):
                 val = vals[0]
                 if val.startswith(("http://", "https://", "//")):
                     found.append(name)
-
         return list(set(found))
 
     @staticmethod
-    def _check_metadata(body: str, baseline_body: str) -> list[str]:
-        """Check response for cloud metadata or internal file indicators."""
+    def _check_metadata(body, baseline_body):
         found = []
         body_lower = body.lower()
-        baseline_lower = baseline_body.lower()
-
+        bl_lower = baseline_body.lower()
         for indicator in METADATA_INDICATORS:
-            if indicator.lower() in body_lower and indicator.lower() not in baseline_lower:
+            if indicator.lower() in body_lower and indicator.lower() not in bl_lower:
                 found.append(indicator)
-
         return found
 
-    @staticmethod
-    def _response_differs(baseline, resp) -> bool:
-        """Check if the SSRF response differs meaningfully from baseline.
+    def _detect_internal_service(self, body, baseline_body):
+        for pattern, service in INTERNAL_SERVICE_SIGS:
+            if re.search(pattern, body, re.I) and not re.search(pattern, baseline_body, re.I):
+                return service
+        return None
 
-        Tight thresholds to avoid false positives:
-        - Status code change alone is NOT enough (many sites return 200 for
-          every request).
-        - Requires a large absolute size difference (>500 bytes) AND a
-          dramatic size ratio change.
-        - Identical bodies are always safe.
-        """
+    @staticmethod
+    def _response_differs(baseline, resp):
         if resp.body == baseline.body:
             return False
-
-        baseline_len = max(len(baseline.body), 1)
+        bl_len = max(len(baseline.body), 1)
         resp_len = len(resp.body)
-        abs_diff = abs(resp_len - baseline_len)
-
-        # Ignore small fluctuations (ads, CSRF tokens, timestamps, etc.)
-        if abs_diff < 500:
+        if abs(resp_len - bl_len) < 1000:  # Tighter threshold: 1000 bytes
             return False
-
-        size_ratio = resp_len / baseline_len
-        # Very different size = server fetched something different
-        if size_ratio < 0.2 or size_ratio > 5.0:
+        ratio = resp_len / bl_len
+        if ratio < 0.15 or ratio > 6.0:
             return True
-
         return False

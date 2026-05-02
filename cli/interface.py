@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunterX -- CLI Interface.
 
 Command-line argument parsing and dispatch to the core engine.
@@ -90,6 +90,19 @@ Examples:
     oob_group.add_argument("--oob-wait", type=int, default=30,
                            help="Seconds to wait for late OOB callbacks (default: 30)")
 
+    # AI-ENHANCED
+    ai_group = parser.add_argument_group("AI Integration")
+    ai_group.add_argument("--ai", action="store_true",
+                          help="Enable all AI features at once")
+    ai_group.add_argument("--ai-triage", action="store_true",
+                          help="Enable only AI false positive filtering")
+    ai_group.add_argument("--ai-report", action="store_true",
+                          help="Enable only AI narrative report generation")
+    ai_group.add_argument("--ai-payloads", action="store_true",
+                          help="Enable only context-aware payload suggestions")
+    ai_group.add_argument("--ai-key", default=None,
+                          help="OpenRouter API key (overrides OPENROUTER_API_KEY env var)")
+
     # Advanced
     adv_group = parser.add_argument_group("Advanced")
     adv_group.add_argument("--resume", action="store_true",
@@ -157,4 +170,10 @@ def parse_args(argv: list[str] | None = None) -> dict:
         "oob_token": args.oob_token,
         "oob_poll": args.oob_poll,
         "oob_wait": args.oob_wait,
+        # AI-ENHANCED
+        "ai": args.ai,
+        "ai_triage": args.ai_triage or args.ai,
+        "ai_report": args.ai_report or args.ai,
+        "ai_payloads": args.ai_payloads or args.ai,
+        "ai_key": args.ai_key,
     }

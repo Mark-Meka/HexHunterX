@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunterX -- Async HTTP Client with Retry & Rate Limiting.
 """
 
@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 import aiohttp
 
 from utils.logger import HexHunterXLogger
+# AI-ENHANCED
+from ai.anomaly import AnomalyDetector
 
 logger = HexHunterXLogger.get_logger("network")
 
@@ -24,6 +26,8 @@ class HTTPResponse:
     elapsed_ms: float
     redirect_chain: list[str] = field(default_factory=list)
     error: str | None = None
+    # AI-ENHANCED
+    anomaly_data: dict | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -31,6 +35,8 @@ class HTTPResponse:
             "headers": self.headers, "body": self.body[:5000],
             "elapsed_ms": self.elapsed_ms, "redirect_chain": self.redirect_chain,
             "error": self.error,
+            # AI-ENHANCED
+            "anomaly_data": self.anomaly_data,
         }
 
 
@@ -87,6 +93,8 @@ class AsyncHTTPClient:
         self._error_count = 0
         self._auth_headers: dict[str, str] = {}
         self._auth_cookies: dict[str, str] = {}
+        # AI-ENHANCED
+        self._anomaly_detector = AnomalyDetector()
 
     async def __aenter__(self):
         await self.start()
@@ -148,11 +156,15 @@ class AsyncHTTPClient:
                         body = ""
                     chain = [str(r.url) for r in resp.history] if resp.history else []
                     self._request_count += 1
+                    
+                    # AI-ENHANCED
+                    anomaly = self._anomaly_detector.analyze(elapsed, len(body))
+                    
                     return HTTPResponse(
                         url=str(resp.url), method=method.upper(),
                         status_code=resp.status, headers=dict(resp.headers),
                         body=body, elapsed_ms=round(elapsed, 2),
-                        redirect_chain=chain)
+                        redirect_chain=chain, anomaly_data=anomaly)
             except asyncio.TimeoutError:
                 last_error = "Timeout"
             except aiohttp.ClientError as e:

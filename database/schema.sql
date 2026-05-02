@@ -1,4 +1,4 @@
-﻿-- HexHunterX SQLite Schema
+-- HexHunterX SQLite Schema
 -- Persistent storage for scan state, findings, and evidence.
 
 CREATE TABLE IF NOT EXISTS targets (
@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS vulnerabilities (
     reproduction    TEXT,
     confidence      TEXT DEFAULT 'medium',
     is_verified     INTEGER DEFAULT 0,
+    verification_method TEXT,
+    ai_triage       TEXT,
     created_at      TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (endpoint_id) REFERENCES endpoints(id),
     FOREIGN KEY (subdomain_id) REFERENCES subdomains(id),

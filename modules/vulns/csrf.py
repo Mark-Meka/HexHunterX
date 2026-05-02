@@ -1,9 +1,9 @@
-﻿"""
-HexHunterX -- Cross-Site Request Forgery (CSRF) Detection Module.
+"""
+HexHunterX -- CSRF Detection Module (v2).
 
-Detect CSRF vulnerabilities by analysing HTML forms for missing tokens,
-checking SameSite cookie policy, and identifying state-changing endpoints
-without CSRF protection.
+- Sensitive action detection (only flags forms doing sensitive things)
+- Combines token absence and cookie vulnerability (SameSite)
+- Informational severity for non-sensitive forms
 """
 
 import re
@@ -11,196 +11,111 @@ from urllib.parse import urlparse
 
 from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
-from modules.fuzzing.payloads import PayloadEngine
+from modules.vulns.verification import Confidence
 
 logger = HexHunterXLogger.get_logger("vulns.csrf")
 
-# Common CSRF token field names
-TOKEN_FIELD_NAMES = [
-    "csrf", "csrf_token", "csrfmiddlewaretoken", "_csrf", "_token",
-    "authenticity_token", "anti-csrf-token", "__RequestVerificationToken",
-    "token", "xsrf", "xsrf_token", "_xsrf", "nonce", "state",
+SENSITIVE_ACTIONS = [
+    r'password', r'email', r'transfer', r'pay', r'delete', r'remove',
+    r'update', r'settings', r'profile', r'admin', r'upload', r'role',
+    r'privilege', r'checkout', r'order', r'buy', r'purchase', r'user'
 ]
 
-# HTTP methods that are state-changing
-STATE_CHANGING_METHODS = {"post", "put", "delete", "patch"}
+CSRF_TOKENS = [
+    r'csrf', r'xsrf', r'token', r'authenticity_token', r'_csrf',
+    r'__RequestVerificationToken', r'nonce'
+]
 
 
 class CSRFDetector:
     """
-    Detect Cross-Site Request Forgery vulnerabilities.
-
-    Methodology:
-        1. Fetch target page and extract all HTML forms
-        2. For each form with a state-changing method (POST/PUT/DELETE):
-           a. Check if a CSRF token hidden field exists
-           b. Check if the token field has a non-empty value
-        3. Analyse response cookies for SameSite attribute
-        4. Generate PoC HTML templates for vulnerable forms
+    Detect CSRF vulnerabilities with sensitive action verification.
     """
 
     def __init__(self, http_client: AsyncHTTPClient):
         self.http = http_client
 
     async def detect(self, url: str) -> list[dict]:
-        """Test a URL for CSRF vulnerabilities."""
         findings = []
-
         resp = await self.http.get(url)
-        if resp.error or resp.status_code != 200:
+        if resp.error or not resp.body:
             return findings
 
-        # ---- Phase 1: Form analysis ----
-        forms = self._extract_forms(resp.body)
-        for form in forms:
-            if form["method"].lower() not in STATE_CHANGING_METHODS:
-                continue  # GET forms aren't vulnerable to CSRF
+        # Analyze cookies for SameSite
+        cookies_vulnerable = self._are_cookies_vulnerable(resp.headers)
 
-            has_token = self._has_csrf_token(form)
-            if not has_token:
-                action = form.get("action", url)
-                finding = {
-                    "type": "CSRF (Missing Token)",
-                    "severity": "medium",
-                    "title": f"Form without CSRF token at {self._truncate(action)}",
-                    "description": (
-                        f"A state-changing form (method={form['method'].upper()}) at "
-                        f"'{action}' does not contain a CSRF token field. An attacker "
-                        f"can craft a cross-origin request that the victim's browser "
-                        f"will send with their authenticated session."
-                    ),
-                    "evidence": (
-                        f"Form action: {action}\n"
-                        f"Method: {form['method'].upper()}\n"
-                        f"Fields: {[f['name'] for f in form.get('inputs', []) if f.get('name')]}\n"
-                        f"CSRF token: NOT FOUND"
-                    ),
-                    "request": url,
-                    "response": self._build_poc_form(action, form),
-                    "confidence": "high",
-                }
-                findings.append(finding)
-                logger.finding("medium", "CSRF", url,
-                               f"Missing token on {form['method'].upper()} form")
+        forms = re.findall(r'<form[^>]*>(.*?)</form>', resp.body, re.IGNORECASE | re.DOTALL)
+        for form_idx, form_html in enumerate(forms):
+            form_tag = re.search(r'<form[^>]*>', resp.body.split(form_html)[0][-200:] + form_html[:50], re.IGNORECASE)
+            action = "unknown"
+            method = "GET"
+            if form_tag:
+                act_match = re.search(r'action=["\']([^"\']+)["\']', form_tag.group(0), re.IGNORECASE)
+                if act_match: action = act_match.group(1)
+                meth_match = re.search(r'method=["\']([^"\']+)["\']', form_tag.group(0), re.IGNORECASE)
+                if meth_match: method = meth_match.group(1).upper()
 
-        # ---- Phase 2: Cookie SameSite analysis ----
-        cookie_findings = self._check_samesite_cookies(url, resp.headers)
-        findings.extend(cookie_findings)
-
-        return findings
-
-    # ─── Helpers ────────────────────────────────────────
-
-    def _extract_forms(self, html: str) -> list[dict]:
-        """Extract forms and their inputs from HTML."""
-        forms = []
-        form_pattern = re.compile(
-            r'<form\s[^>]*?>(.*?)</form>',
-            re.DOTALL | re.IGNORECASE,
-        )
-        action_pattern = re.compile(r'action=["\']([^"\']*)["\']', re.IGNORECASE)
-        method_pattern = re.compile(r'method=["\']([^"\']*)["\']', re.IGNORECASE)
-        input_pattern = re.compile(
-            r'<input\s[^>]*?name=["\']([^"\']*)["\'][^>]*?>',
-            re.IGNORECASE,
-        )
-        type_pattern = re.compile(r'type=["\']([^"\']*)["\']', re.IGNORECASE)
-
-        for form_match in form_pattern.finditer(html):
-            form_html = form_match.group(0)
-            form_body = form_match.group(1)
-
-            action_m = action_pattern.search(form_html)
-            method_m = method_pattern.search(form_html)
-
-            action = action_m.group(1) if action_m else ""
-            method = method_m.group(1) if method_m else "get"
-
-            inputs = []
-            for inp_match in input_pattern.finditer(form_body):
-                inp_name = inp_match.group(1)
-                inp_html = inp_match.group(0)
-                type_m = type_pattern.search(inp_html)
-                inp_type = type_m.group(1) if type_m else "text"
-                inputs.append({"name": inp_name, "type": inp_type})
-
-            forms.append({
-                "action": action,
-                "method": method,
-                "inputs": inputs,
-            })
-
-        return forms
-
-    def _has_csrf_token(self, form: dict) -> bool:
-        """Check if a form contains a CSRF token field."""
-        for inp in form.get("inputs", []):
-            name = (inp.get("name") or "").lower()
-            for token_name in TOKEN_FIELD_NAMES:
-                if token_name in name:
-                    return True
-        return False
-
-    def _check_samesite_cookies(self, url: str, headers: dict) -> list[dict]:
-        """Check if session cookies have SameSite attribute."""
-        findings = []
-        set_cookies = []
-
-        for key, value in headers.items():
-            if key.lower() == "set-cookie":
-                set_cookies.append(value)
-
-        for cookie in set_cookies:
-            cookie_lower = cookie.lower()
-            # Only care about session-like cookies
-            is_session = any(kw in cookie_lower for kw in [
-                "session", "sess", "sid", "auth", "token", "jwt", "login",
-            ])
-            if not is_session:
+            if method == "GET":
                 continue
 
-            has_samesite = "samesite=" in cookie_lower
-            samesite_none = "samesite=none" in cookie_lower
+            has_token = self._has_csrf_token(form_html)
+            is_sensitive = self._is_sensitive_form(action, form_html)
 
-            if not has_samesite or samesite_none:
-                cookie_name = cookie.split("=")[0].strip()
-                severity = "medium" if samesite_none else "low"
-                finding = {
-                    "type": "CSRF (Weak Cookie Policy)",
-                    "severity": severity,
-                    "title": f"Session cookie '{cookie_name}' lacks SameSite protection",
-                    "description": (
-                        f"The session cookie '{cookie_name}' does not have a "
-                        f"SameSite attribute (or is set to 'None'), allowing it "
-                        f"to be sent with cross-origin requests. Combined with "
-                        f"missing CSRF tokens, this enables CSRF attacks."
-                    ),
-                    "evidence": f"Set-Cookie: {cookie[:200]}",
-                    "request": url,
-                    "confidence": "high" if samesite_none else "medium",
-                }
-                findings.append(finding)
+            if not has_token:
+                if is_sensitive:
+                    sev = "high" if cookies_vulnerable else "medium"
+                    conf = Confidence.HIGH if cookies_vulnerable else Confidence.MEDIUM
+                    findings.append({
+                        "type": "CSRF",
+                        "severity": sev,
+                        "title": f"CSRF on sensitive form: {action[:30]}",
+                        "description": (
+                            f"Sensitive form lacks CSRF token. "
+                            f"Cookies vulnerable (No SameSite=Strict/Lax): {cookies_vulnerable}."
+                        ),
+                        "evidence": f"Action: {action}\nMethod: {method}\nForm content snippet:\n{form_html[:200]}",
+                        "request": url,
+                        "response": form_html[:500],
+                        "confidence": conf,
+                        "verification_method": "sensitive_form_analysis",
+                    })
+                else:
+                    findings.append({
+                        "type": "Missing CSRF Token (Info)",
+                        "severity": "info",
+                        "title": f"Missing CSRF token on non-sensitive form: {action[:30]}",
+                        "description": "Form lacks CSRF token but does not appear to perform a sensitive action.",
+                        "evidence": f"Action: {action}",
+                        "request": url,
+                        "response": "",
+                        "confidence": Confidence.LOW,
+                        "verification_method": "form_analysis",
+                    })
 
         return findings
 
-    @staticmethod
-    def _build_poc_form(action: str, form: dict) -> str:
-        """Build an HTML proof-of-concept auto-submit form."""
-        fields = ""
-        for inp in form.get("inputs", []):
-            name = inp.get("name", "")
-            if name:
-                fields += f'  <input type="hidden" name="{name}" value="HexHunterX_TEST"/>\n'
+    def _are_cookies_vulnerable(self, headers: dict) -> bool:
+        set_cookies = headers.get("Set-Cookie", headers.get("set-cookie", ""))
+        if not set_cookies:
+            # If we don't know, assume vulnerable for form checking
+            return True
+        if isinstance(set_cookies, list):
+            set_cookies = str(set_cookies)
+        
+        if "samesite=strict" in set_cookies.lower() or "samesite=lax" in set_cookies.lower():
+            return False
+        return True
 
-        return (
-            f'<html>\n<body>\n'
-            f'<form action="{action}" method="{form["method"].upper()}">\n'
-            f'{fields}'
-            f'</form>\n'
-            f'<script>document.forms[0].submit();</script>\n'
-            f'</body>\n</html>'
-        )
+    def _has_csrf_token(self, form_html: str) -> bool:
+        for token in CSRF_TOKENS:
+            if re.search(rf'name=["\']{token}["\']', form_html, re.IGNORECASE):
+                return True
+        return False
 
-    @staticmethod
-    def _truncate(text: str, length: int = 60) -> str:
-        return text[:length] + "..." if len(text) > length else text
+    def _is_sensitive_form(self, action: str, form_html: str) -> bool:
+        if "login" in action.lower() or "search" in action.lower():
+            return False
+        for pattern in SENSITIVE_ACTIONS:
+            if re.search(pattern, action, re.IGNORECASE) or re.search(pattern, form_html, re.IGNORECASE):
+                return True
+        return False

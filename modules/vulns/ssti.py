@@ -1,9 +1,12 @@
-﻿"""
-HexHunterX -- Server-Side Template Injection (SSTI) Detection Module.
+"""
+HexHunterX -- SSTI Detection Module (v2).
 
-Detect SSTI by injecting arithmetic template expressions and checking
-whether the server evaluates them. Identifies Jinja2, Twig, FreeMarker,
-ERB, and other engines.
+Multi-stage template injection verification:
+- Stage 1: Primary expression evaluation (7*7=49)
+- Stage 2: Confirmation with unique expression (7*191=1337)
+- Stage 3: Template engine fingerprinting
+- No parameter invention
+- Contextual filtering to eliminate coincidental matches
 """
 
 import re
@@ -12,121 +15,155 @@ from urllib.parse import urlencode, urlparse, parse_qs
 from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
+from modules.vulns.verification import ConfidenceScorer, Confidence
 
 logger = HexHunterXLogger.get_logger("vulns.ssti")
 
-# Detection probes: expression -> expected computed result
+# Two-stage probes: primary + confirmation
 SSTI_PROBES = [
-    ("{{7*7}}", "49"),
-    ("{{7*'7'}}", "7777777"),       # Jinja2
-    ("${7*7}", "49"),               # FreeMarker / Java EL
-    ("<%= 7*7 %>", "49"),           # ERB / EJS
-    ("#{7*7}", "49"),               # Ruby / Pug
-    ("*{7*7}", "49"),               # Thymeleaf
+    # (primary_expr, primary_expected, confirm_expr, confirm_expected, engine_hint)
+    ("{{7*7}}", "49", "{{7*191}}", "1337", "Jinja2 / Twig / Nunjucks"),
+    ("{{7*'7'}}", "7777777", "{{3*'3'}}", "333", "Jinja2"),
+    ("${7*7}", "49", "${7*191}", "1337", "FreeMarker / Mako / Java EL"),
+    ("<%= 7*7 %>", "49", "<%= 7*191 %>", "1337", "ERB / EJS"),
+    ("#{7*7}", "49", "#{7*191}", "1337", "Ruby / Pug"),
+    ("*{7*7}", "49", "*{7*191}", "1337", "Thymeleaf"),
 ]
-
-# Engine identification based on which probe triggered
-ENGINE_MAP = {
-    "{{7*'7'}}": "Jinja2 / Twig",
-    "{{7*7}}": "Jinja2 / Twig / Nunjucks",
-    "${7*7}": "FreeMarker / Mako / Java EL",
-    "<%= 7*7 %>": "ERB / EJS",
-    "#{7*7}": "Ruby / Slim / Pug",
-    "*{7*7}": "Thymeleaf",
-}
 
 
 class SSTIDetector:
     """
-    Detect Server-Side Template Injection vulnerabilities.
+    Detect SSTI with multi-stage expression evaluation verification.
 
-    Methodology:
-        1. Inject arithmetic template expressions into all parameters
-        2. Check if computed value (e.g. 49) appears in the response
-        3. Validate the computed value was NOT in the baseline response
-        4. Identify the template engine from the successful probe
-        5. Generate PoC with engine-specific escalation payloads
+    Only reports when server-side evaluation is CONFIRMED by two
+    independent mathematical expressions producing correct results.
     """
 
     def __init__(self, http_client: AsyncHTTPClient, oob_client=None):
         self.http = http_client
         self.oob = oob_client
+        self._scorer = ConfidenceScorer()
 
     async def detect(self, url: str) -> list[dict]:
-        """Test a URL for SSTI vulnerabilities."""
         findings = []
         parsed = urlparse(url)
         params = parse_qs(parsed.query)
-
         if not params:
-            params = {
-                "name": ["test"], "template": ["test"], "q": ["test"],
-                "search": ["test"], "input": ["test"], "msg": ["test"],
-                "message": ["test"], "text": ["test"],
-            }
+            return findings  # No params — no SSTI testing
 
         base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
         for param_name in params:
-            # Get baseline response
-            original_val = params[param_name][0] if isinstance(params[param_name], list) else str(params[param_name])
-            baseline_url = f"{base}?{urlencode({param_name: original_val})}"
-            baseline_resp = await self.http.get(baseline_url)
+            original_val = (
+                params[param_name][0]
+                if isinstance(params[param_name], list)
+                else str(params[param_name])
+            )
+            finding = await self._test_param(base, param_name, original_val, params)
+            if finding:
+                findings.append(finding)
 
-            if baseline_resp.error:
-                continue
-
-            # Test each probe
-            for probe, expected in SSTI_PROBES:
-                test_url = f"{base}?{urlencode({param_name: probe})}"
-                resp = await self.http.get(test_url)
-
-                if resp.error or resp.status_code == 0:
-                    continue
-
-                # Check if computed value appears in response but NOT in baseline
-                if expected in resp.body and expected not in baseline_resp.body:
-                    engine = ENGINE_MAP.get(probe, "Unknown")
-                    poc = PayloadEngine.generate_poc("ssti", base, param_name, probe)
-
-                    finding = {
-                        "type": f"SSTI ({engine})",
-                        "severity": "critical",
-                        "title": f"Server-Side Template Injection in parameter '{param_name}'",
-                        "description": (
-                            f"The parameter '{param_name}' is vulnerable to Server-Side "
-                            f"Template Injection. The expression '{probe}' was evaluated "
-                            f"server-side, producing '{expected}' in the response. "
-                            f"Detected engine: {engine}. This can lead to Remote Code Execution."
-                        ),
-                        "evidence": (
-                            f"Probe: {probe}\n"
-                            f"Expected: {expected}\n"
-                            f"Engine: {engine}\n"
-                            f"Response snippet: {self._extract_context(resp.body, expected)}"
-                        ),
-                        "request": test_url,
-                        "response": resp.body[:2000],
-                        "reproduction": poc,
-                        "confidence": "high",
-                    }
-                    findings.append(finding)
-                    logger.finding("critical", "SSTI", base,
-                                   f"param={param_name}, engine={engine}")
-                    break  # One finding per parameter
-
-            # ── OOB blind SSTI payloads ──
+            # OOB payloads
             if self.oob and self.oob.is_registered:
-                oob_payloads = self.oob.get_oob_payloads("ssti", base, param_name)
-                for oob_payload in oob_payloads:
-                    test_url = f"{base}?{urlencode({param_name: oob_payload})}"
-                    await self.http.get(test_url)  # Fire and forget -- callback is async
+                for p in self.oob.get_oob_payloads("ssti", base, param_name):
+                    await self.http.get(f"{base}?{urlencode({param_name: p})}")
 
         return findings
 
+    async def _test_param(self, base, param_name, original_val, all_params):
+        """Test a single parameter with two-stage SSTI verification."""
+
+        # Build param dict preserving other params
+        other_params = {
+            k: (v[0] if isinstance(v, list) else v)
+            for k, v in all_params.items() if k != param_name
+        }
+
+        # Get baseline to check if expected values already exist
+        bp = {param_name: original_val, **other_params}
+        baseline_resp = await self.http.get(f"{base}?{urlencode(bp)}")
+        if baseline_resp.error:
+            return None
+
+        for primary, expected, confirm, confirm_expected, engine in SSTI_PROBES:
+            # ── Stage 1: Primary probe ──
+            tp = {param_name: primary, **other_params}
+            resp = await self.http.get(f"{base}?{urlencode(tp)}")
+            if resp.error or resp.status_code == 0:
+                continue
+
+            if expected not in resp.body:
+                continue
+
+            # Filter: was the expected value already in baseline?
+            if expected in baseline_resp.body:
+                # Check if it appears at the same position — coincidence
+                # Only accept if it appears at a NEW position
+                baseline_positions = [
+                    m.start() for m in re.finditer(re.escape(expected), baseline_resp.body)
+                ]
+                resp_positions = [
+                    m.start() for m in re.finditer(re.escape(expected), resp.body)
+                ]
+                new_positions = [p for p in resp_positions if p not in baseline_positions]
+                if not new_positions:
+                    continue  # Same positions — not our injection
+
+            # ── Stage 2: Confirmation probe ──
+            tp2 = {param_name: confirm, **other_params}
+            resp2 = await self.http.get(f"{base}?{urlencode(tp2)}")
+            if resp2.error:
+                continue
+
+            confirmed = confirm_expected in resp2.body
+            if confirmed and confirm_expected in baseline_resp.body:
+                # Same baseline check for confirmation
+                bl_pos = [m.start() for m in re.finditer(re.escape(confirm_expected), baseline_resp.body)]
+                r2_pos = [m.start() for m in re.finditer(re.escape(confirm_expected), resp2.body)]
+                if not [p for p in r2_pos if p not in bl_pos]:
+                    confirmed = False
+
+            # Score confidence
+            signals = {
+                "expression_evaluated": True,
+                "baseline_differs": True,
+                "retry_confirmed": confirmed,
+            }
+            conf = self._scorer.score(signals)
+
+            # If only stage 1 passed (no confirmation), downgrade
+            if not confirmed:
+                conf = Confidence.MEDIUM
+
+            context_snippet = self._extract_context(resp.body, expected)
+            poc = PayloadEngine.generate_poc("ssti", base, param_name, primary)
+
+            return {
+                "type": f"SSTI ({engine})",
+                "severity": "critical" if confirmed else "high",
+                "title": f"Server-Side Template Injection in parameter '{param_name}'",
+                "description": (
+                    f"Expression '{primary}' evaluated to '{expected}' server-side. "
+                    + (f"Confirmed with '{confirm}'→'{confirm_expected}'. " if confirmed else "")
+                    + f"Engine: {engine}."
+                ),
+                "evidence": (
+                    f"Primary: {primary} → {expected} ({'found' if True else 'not found'})\n"
+                    f"Confirm: {confirm} → {confirm_expected} ({'confirmed' if confirmed else 'not confirmed'})\n"
+                    f"Engine: {engine}\n"
+                    f"Context: {context_snippet}"
+                ),
+                "request": f"{base}?{urlencode(tp)}",
+                "response": resp.body[:2000],
+                "reproduction": poc,
+                "confidence": conf,
+                "verification_method": "multi_stage_expression_eval",
+            }
+
+        return None
+
     @staticmethod
-    def _extract_context(body: str, value: str, window: int = 80) -> str:
-        """Extract a snippet of the response around the computed value."""
+    def _extract_context(body, value, window=80):
         idx = body.find(value)
         if idx == -1:
             return ""

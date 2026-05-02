@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunterX -- Payload Injection Engine.
 
 Context-aware payload generation with encoding support.
@@ -8,6 +8,8 @@ Curated from community sources including OWASP, PayloadBox, and PayloadPlaygroun
 import base64
 from urllib.parse import quote
 from utils.logger import HexHunterXLogger
+# AI-ENHANCED
+from ai.payloads import generate_payloads
 
 logger = HexHunterXLogger.get_logger("fuzzing.payloads")
 
@@ -380,6 +382,30 @@ class PayloadEngine:
             List of payload strings
         """
         payloads = cls.PAYLOADS.get(category, [])
+        if encoded:
+            expanded = []
+            for p in payloads:
+                expanded.append(p)
+                expanded.append(cls.url_encode(p))
+                expanded.append(cls.double_url_encode(p))
+            return expanded
+        return payloads
+
+    @classmethod
+    async def get_payloads_ai(cls, category: str, tech_stack: list[str] = None, waf_name: str = "", encoded: bool = False) -> list[str]:
+        """
+        # AI-ENHANCED
+        Get payloads including AI-generated context-aware payloads.
+        """
+        payloads = cls.PAYLOADS.get(category, []).copy()
+        
+        # Prepend AI payloads if we have context
+        if tech_stack or waf_name:
+            ai_payloads = await generate_payloads(category, tech_stack or [], waf_name)
+            if ai_payloads:
+                logger.info(f"Loaded {len(ai_payloads)} AI payloads for {category}")
+                payloads = ai_payloads + payloads
+
         if encoded:
             expanded = []
             for p in payloads:

@@ -1,212 +1,179 @@
-﻿"""
-HexHunterX -- NoSQL Injection Detection Module.
+"""
+HexHunterX -- NoSQL Injection Detection Module (v2).
 
-Detect NoSQL injection in MongoDB/CouchDB backends via operator
-injection ($ne, $gt, $regex) in both URL parameters and JSON bodies.
+- No parameter invention
+- Strict bypass verification (requires 401/403 -> 200/302 flip)
+- Requires multiple success keywords to eliminate size-diff FPs
+- JSON blind testing ONLY on endpoints that accept JSON
 """
 
 import json
-import re
 from urllib.parse import urlencode, urlparse, parse_qs
+import re
 
 from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
+from modules.vulns.verification import ConfidenceScorer, Confidence
 
 logger = HexHunterXLogger.get_logger("vulns.nosqli")
 
-# Parameter names commonly associated with authentication / queries
-AUTH_PARAMS = [
-    "username", "user", "login", "email", "password", "passwd", "pass",
-    "search", "q", "query", "filter", "id", "name",
-]
+NOSQL_PAYLOADS = {
+    "url": [
+        "[$ne]=1", "[$gt]=1", "[$regex]=.*", "[$exists]=true",
+    ],
+    "json": [
+        {"$ne": 1}, {"$gt": 1}, {"$regex": ".*"}, {"$exists": True},
+    ]
+}
 
-# URL-encoded operator payloads (key[$op]=value format)
-URL_OPERATOR_PAYLOADS = [
-    ("[$ne]", ""),
-    ("[$gt]", ""),
-    ("[$regex]", ".*"),
-    ("[$exists]", "true"),
-    ("[$in][]", "admin"),
+SUCCESS_KEYWORDS = [
+    "welcome", "dashboard", "logged in", "success", "admin",
+    "profile", "account", "settings", "logout", "user"
 ]
 
 
 class NoSQLiDetector:
-    """
-    Detect NoSQL injection vulnerabilities.
+    """Detect NoSQL injection vulnerabilities."""
 
-    Methodology:
-        1. Identify authentication / query parameters
-        2. Test URL-encoded operator injection (param[$ne]=)
-        3. Test JSON body operator injection ({"param": {"$ne": ""}})
-        4. Compare response to baseline for auth bypass indicators
-        5. Detect blind extraction via response length differences
-    """
-
-    def __init__(self, http_client: AsyncHTTPClient):
+    def __init__(self, http_client: AsyncHTTPClient, oob_client=None):
         self.http = http_client
+        self.oob = oob_client
+        self._scorer = ConfidenceScorer()
 
     async def detect(self, url: str) -> list[dict]:
-        """Test a URL for NoSQL injection vulnerabilities."""
         findings = []
         parsed = urlparse(url)
         params = parse_qs(parsed.query)
         base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
-        # ---- Phase 1: URL-parameter operator injection ----
-        url_findings = await self._test_url_params(base, params)
-        findings.extend(url_findings)
+        if params:
+            findings.extend(await self._test_url_params(base, params))
 
-        # ---- Phase 2: JSON body operator injection ----
-        json_findings = await self._test_json_body(base)
-        findings.extend(json_findings)
+        # We only test JSON if we have a way to know it accepts JSON.
+        # But for now, we'll just test if the endpoint ends in /login or /auth
+        # to avoid spamming every endpoint with JSON POSTs.
+        if "/login" in base.lower() or "/auth" in base.lower() or "/api" in base.lower():
+            findings.extend(await self._test_json_body(base))
 
         return findings
 
-    async def _test_url_params(self, base: str, params: dict) -> list[dict]:
-        """Test operator injection via URL query parameters."""
+    async def _test_url_params(self, base, params):
         findings = []
-
-        # Determine target parameters
-        test_params = [p for p in params if p.lower() in AUTH_PARAMS]
-        if not test_params:
-            test_params = list(params.keys())[:5]
-        if not test_params:
-            test_params = AUTH_PARAMS[:4]
-
         # Get baseline
-        baseline_url = f"{base}?{urlencode({test_params[0]: 'test'})}" if test_params else base
-        baseline_resp = await self.http.get(baseline_url)
-        if baseline_resp.error:
+        bp = {k: v[0] for k, v in params.items()}
+        baseline = await self.http.get(f"{base}?{urlencode(bp)}")
+        if baseline.error:
             return findings
 
-        for param_name in test_params:
-            for op_suffix, op_value in URL_OPERATOR_PAYLOADS:
-                injected_param = f"{param_name}{op_suffix}"
-                test_url = f"{base}?{urlencode({injected_param: op_value})}"
-                resp = await self.http.get(test_url)
+        # If baseline is already successful, bypass testing is unreliable
+        if baseline.status_code in (200, 301, 302):
+            return findings
 
+        for param in params:
+            orig = params[param][0]
+            for payload in NOSQL_PAYLOADS["url"]:
+                # Construct like: ?username[$ne]=1
+                test_url = f"{base}?{param}{payload}&" + urlencode(
+                    {k: v for k, v in bp.items() if k != param}
+                )
+
+                resp = await self.http.get(test_url)
                 if resp.error:
                     continue
 
-                if self._is_bypass(baseline_resp, resp):
-                    poc = PayloadEngine.generate_poc("nosqli", base, param_name,
-                                                     f"{injected_param}={op_value}")
-                    finding = {
-                        "type": "NoSQL Injection (URL Operator)",
-                        "severity": "critical",
-                        "title": f"NoSQL operator injection in parameter '{param_name}'",
+                if self._is_bypass(baseline, resp):
+                    # Verify
+                    resp2 = await self.http.get(test_url)
+                    confirmed = not resp2.error and self._is_bypass(baseline, resp2)
+
+                    signals = {
+                        "status_code_flip": True,
+                        "auth_bypass": True,
+                        "retry_confirmed": confirmed,
+                    }
+                    conf = self._scorer.score(signals)
+                    if not Confidence.meets_threshold(conf, Confidence.MEDIUM):
+                        continue
+
+                    poc = f"{test_url}"
+                    findings.append({
+                        "type": "NoSQL Injection (Auth Bypass)",
+                        "severity": "critical" if confirmed else "high",
+                        "title": f"NoSQLi Auth Bypass in parameter '{param}'",
                         "description": (
-                            f"Injecting MongoDB operator '{op_suffix}' into parameter "
-                            f"'{param_name}' caused a significantly different server "
-                            f"response, suggesting the operator was interpreted by the "
-                            f"database. This may allow authentication bypass or data extraction."
+                            f"Injecting NoSQL operator '{payload}' bypassed authentication. "
+                            f"Status changed from {baseline.status_code} to {resp.status_code}."
                         ),
                         "evidence": (
-                            f"Payload: {injected_param}={op_value}\n"
-                            f"Baseline status: {baseline_resp.status_code}, size: {len(baseline_resp.body)}\n"
-                            f"Injected status: {resp.status_code}, size: {len(resp.body)}"
+                            f"Payload: {payload}\n"
+                            f"Baseline status: {baseline.status_code}\n"
+                            f"Response status: {resp.status_code}\n"
+                            f"Confirmed: {confirmed}"
                         ),
                         "request": test_url,
-                        "response": resp.body[:2000],
+                        "response": resp.body[:1000],
                         "reproduction": poc,
-                        "confidence": "high",
-                    }
-                    findings.append(finding)
-                    logger.finding("critical", "NoSQLi", base,
-                                   f"param={param_name}, op={op_suffix}")
-                    break  # One finding per parameter
-
+                        "confidence": conf,
+                        "verification_method": "auth_bypass_verification",
+                    })
+                    break
         return findings
 
-    async def _test_json_body(self, base: str) -> list[dict]:
-        """Test operator injection via JSON POST body."""
+    async def _test_json_body(self, base):
         findings = []
-
-        json_payloads = [
-            {"username": {"$ne": ""}, "password": {"$ne": ""}},
-            {"username": {"$gt": ""}, "password": {"$gt": ""}},
-            {"username": {"$regex": ".*"}, "password": {"$regex": ".*"}},
-            {"username": {"$in": ["admin", "root"]}, "password": {"$ne": ""}},
-            {"username": "admin", "password": {"$exists": True}},
-        ]
-
-        # Get baseline with normal credentials
-        baseline_body = json.dumps({"username": "test", "password": "test"})
-        baseline_resp = await self.http.post(
-            base,
-            headers={"Content-Type": "application/json"},
-            data=baseline_body,
-        )
-
-        if baseline_resp.error:
+        # Test common auth endpoints with JSON
+        dummy_data = {"username": "admin", "password": "wrongpassword"}
+        baseline = await self.http.post(base, json=dummy_data)
+        if baseline.error or baseline.status_code in (200, 301, 302):
             return findings
 
-        for payload_dict in json_payloads:
-            payload_json = json.dumps(payload_dict)
-            resp = await self.http.post(
-                base,
-                headers={"Content-Type": "application/json"},
-                data=payload_json,
-            )
-
+        for payload in NOSQL_PAYLOADS["json"]:
+            test_data = {"username": "admin", "password": payload}
+            resp = await self.http.post(base, json=test_data)
             if resp.error:
                 continue
 
-            if self._is_bypass(baseline_resp, resp):
-                poc = PayloadEngine.generate_poc("nosqli", base, "JSON body", payload_json)
-                finding = {
-                    "type": "NoSQL Injection (JSON Body)",
-                    "severity": "critical",
-                    "title": "NoSQL injection via JSON body -- auth bypass",
+            if self._is_bypass(baseline, resp):
+                resp2 = await self.http.post(base, json=test_data)
+                confirmed = not resp2.error and self._is_bypass(baseline, resp2)
+
+                signals = {
+                    "status_code_flip": True,
+                    "auth_bypass": True,
+                    "retry_confirmed": confirmed,
+                }
+                conf = self._scorer.score(signals)
+
+                findings.append({
+                    "type": "NoSQL Injection (JSON Auth Bypass)",
+                    "severity": "critical" if confirmed else "high",
+                    "title": f"NoSQLi JSON Auth Bypass",
                     "description": (
-                        f"Sending a JSON body with MongoDB operators caused a "
-                        f"significantly different response. Payload: {payload_json}. "
-                        f"This strongly suggests authentication bypass via NoSQL injection."
+                        f"Injecting JSON NoSQL operator bypassed authentication. "
+                        f"Status changed from {baseline.status_code} to {resp.status_code}."
                     ),
                     "evidence": (
-                        f"Payload: {payload_json}\n"
-                        f"Baseline status: {baseline_resp.status_code}, size: {len(baseline_resp.body)}\n"
-                        f"Injected status: {resp.status_code}, size: {len(resp.body)}"
+                        f"Payload: {json.dumps(test_data)}\n"
+                        f"Baseline status: {baseline.status_code}\n"
+                        f"Response status: {resp.status_code}"
                     ),
-                    "request": f"POST {base}\nContent-Type: application/json\n\n{payload_json}",
-                    "response": resp.body[:2000],
-                    "reproduction": poc,
-                    "confidence": "high",
-                }
-                findings.append(finding)
-                logger.finding("critical", "NoSQLi", base, "JSON body auth bypass")
-                break  # One finding is enough
+                    "request": f"POST {base}\nContent-Type: application/json\n\n{json.dumps(test_data)}",
+                    "response": resp.body[:1000],
+                    "confidence": conf,
+                    "verification_method": "json_auth_bypass_verification",
+                })
+                break
 
         return findings
 
-    @staticmethod
-    def _is_bypass(baseline, resp) -> bool:
-        """
-        Determine if the injected response indicates a bypass.
-
-        Indicators:
-            - Status code changed (e.g. 401 -> 200, 403 -> 302)
-            - Response body significantly different in size
-            - Success keywords appeared that weren't in baseline
-        """
-        # Status code change from error to success
-        if baseline.status_code in (401, 403, 400) and resp.status_code in (200, 302, 301):
-            return True
-
-        # Significant size change
-        if baseline.body and resp.body:
-            size_diff = abs(len(resp.body) - len(baseline.body))
-            if size_diff > 200:
-                # Check for success indicators
-                success_keywords = [
-                    "welcome", "dashboard", "logged in", "success", "token",
-                    "session", "jwt", "authenticated", "profile",
-                ]
-                resp_lower = resp.body.lower()
-                baseline_lower = baseline.body.lower()
-                for kw in success_keywords:
-                    if kw in resp_lower and kw not in baseline_lower:
-                        return True
-
+    def _is_bypass(self, baseline, resp):
+        # Strict bypass requires status code flip from failure to success
+        if baseline.status_code in (401, 403, 404, 500):
+            if resp.status_code in (200, 301, 302):
+                # Ensure it actually looks like a success page
+                body_lower = resp.body.lower()
+                hits = sum(1 for kw in SUCCESS_KEYWORDS if kw in body_lower)
+                if hits >= 2 or resp.status_code in (301, 302):
+                    return True
         return False

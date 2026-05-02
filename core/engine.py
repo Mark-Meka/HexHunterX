@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunterX -- Core Execution Engine.
 
 Orchestrates the full pentesting pipeline:
@@ -18,6 +18,11 @@ from database.models import Target, Subdomain, Endpoint, ScanResult, Vulnerabili
 from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from utils.validators import InputValidator, TargetType
+from modules.vulns.deduplication import FindingDeduplicator
+import json
+
+# AI-ENHANCED
+from ai.triage import triage_finding
 
 logger = HexHunterXLogger.get_logger("engine")
 
@@ -367,6 +372,12 @@ class HexHunterXEngine:
             ("CSRF", CSRFDetector(self.http_client)),
             ("CORS", CORSDetector(self.http_client)),
         ]
+        
+        # Initialize Deduplicator
+        deduplicator = FindingDeduplicator(
+            max_findings=self.config.get("vulnerability", {}).get("verification", {}).get("max_findings", 50),
+            min_confidence=self.config.get("vulnerability", {}).get("verification", {}).get("min_confidence", "medium")
+        )
 
         for sub in alive_subs:
             endpoints = await self.db.get_endpoints(sub["id"])
@@ -384,22 +395,12 @@ class HexHunterXEngine:
                             vulns.extend(found)
 
                     for v in vulns:
-                        vuln = Vulnerability(
-                            endpoint_id=v.get("endpoint_id"),
-                            subdomain_id=sub["id"],
-                            target_id=self.target_id,
-                            vuln_type=v["type"],
-                            severity=v["severity"],
-                            title=v.get("title", ""),
-                            description=v.get("description", ""),
-                            evidence=v.get("evidence", ""),
-                            request_data=str(v.get("request", "")),
-                            response_data=str(v.get("response", ""))[:5000],
-                            reproduction=v.get("reproduction", ""),
-                            confidence=v.get("confidence", "medium"),
-                        )
-                        vuln_id = await self.db.insert_vulnerability(vuln)
-                        logger.finding(v["severity"], v["type"], base_url, v.get("title", ""))
+                        # Append metadata needed for dedup
+                        v["subdomain_id"] = sub["id"]
+                        v["endpoint_id"] = v.get("endpoint_id")
+                        v["base_url"] = base_url
+                        
+                        deduplicator.add(v)
                 except Exception as e:
                     logger.debug(f"Error in {name} detector for {base_url}: {e}")
 
@@ -409,23 +410,47 @@ class HexHunterXEngine:
             oob_wait = self.config.get("oob", {}).get("wait_timeout", 30)
             await self.oob_client.wait_for_callbacks(timeout=oob_wait)
 
-            # Convert OOB interactions to findings
             oob_findings = self.oob_client.get_findings()
             for v in oob_findings:
-                vuln = Vulnerability(
-                    subdomain_id=alive_subs[0]["id"],
-                    target_id=self.target_id,
+                v["subdomain_id"] = alive_subs[0]["id"]
+                v["base_url"] = ""
+                deduplicator.add(v)
+
+        # ─── Finalize Findings (AI Triage & DB Insert) ───
+        final_findings = deduplicator.get_findings()
+        logger.info(f"Deduplicator yielded {len(final_findings)} unique findings.")
+        
+        for v in final_findings:
+            # AI-ENHANCED Triage
+            ai_triage_data = None
+            if self.config.get("ai_triage"):
+                logger.info(f"AI Triaging: {v['type']} at {v.get('request', '')[:50]}")
+                ai_triage_data = await triage_finding(
                     vuln_type=v["type"],
-                    severity=v["severity"],
-                    title=v.get("title", ""),
-                    description=v.get("description", ""),
-                    evidence=v.get("evidence", ""),
-                    request_data=str(v.get("request", "")),
-                    response_data=str(v.get("response", ""))[:5000],
-                    confidence=v.get("confidence", "high"),
+                    payload=v.get("evidence", ""),
+                    raw_request=v.get("request", ""),
+                    raw_response=v.get("response", "")
                 )
-                await self.db.insert_vulnerability(vuln)
-                logger.finding(v["severity"], v["type"], "", v.get("title", ""))
+                v["ai_triage"] = ai_triage_data
+
+            vuln = Vulnerability(
+                endpoint_id=v.get("endpoint_id"),
+                subdomain_id=v.get("subdomain_id"),
+                target_id=self.target_id,
+                vuln_type=v["type"],
+                severity=v["severity"],
+                title=v.get("title", ""),
+                description=v.get("description", ""),
+                evidence=v.get("evidence", ""),
+                request_data=str(v.get("request", "")),
+                response_data=str(v.get("response", ""))[:5000],
+                reproduction=v.get("reproduction", ""),
+                confidence=v.get("confidence", "medium"),
+                verification_method=v.get("verification_method", ""),
+                ai_triage=json.dumps(ai_triage_data) if ai_triage_data else None,
+            )
+            await self.db.insert_vulnerability(vuln)
+            logger.finding(v["severity"], v["type"], v.get("base_url", ""), v.get("title", ""))
 
         await self.db.insert_log("vulns", "Completed vulnerability checks")
 

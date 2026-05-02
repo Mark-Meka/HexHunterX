@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunterX -- Database Models.
 
 Dataclass-based models mapping to SQLite tables.
@@ -77,6 +77,9 @@ class Vulnerability:
     reproduction: str | None = None
     confidence: str = "medium"
     is_verified: bool = False
+    verification_method: str | None = None
+    # AI-ENHANCED
+    ai_triage: str | None = None
     id: int | None = None
     created_at: str | None = None
 

@@ -14,7 +14,7 @@ import re
 from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
-from modules.vulns.verification import ConfidenceScorer, Confidence
+from modules.vulns.verification import ResponseAnalyzer, ConfidenceScorer, Confidence
 
 logger = HexHunterXLogger.get_logger("vulns.nosqli")
 
@@ -40,6 +40,7 @@ class NoSQLiDetector:
         self.http = http_client
         self.oob = oob_client
         self._scorer = ConfidenceScorer()
+        self._analyzer = ResponseAnalyzer(similarity_threshold=0.90)
 
     async def detect(self, url: str) -> list[dict]:
         findings = []
@@ -171,10 +172,20 @@ class NoSQLiDetector:
     def _is_bypass(self, baseline, resp):
         # Strict bypass requires status code flip from failure to success
         if baseline.status_code in (401, 403, 404, 500):
-            if resp.status_code in (200, 301, 302):
-                # Ensure it actually looks like a success page
+            if resp.status_code in (301, 302):
+                return True
+            if resp.status_code == 200:
+                if not self._analyzer.response_changed_meaningly(
+                    baseline.body, resp.body, min_diff_bytes=50
+                ):
+                    return False
                 body_lower = resp.body.lower()
-                hits = sum(1 for kw in SUCCESS_KEYWORDS if kw in body_lower)
-                if hits >= 2 or resp.status_code in (301, 302):
+                base_lower = baseline.body.lower()
+                hits = sum(
+                    1
+                    for kw in SUCCESS_KEYWORDS
+                    if kw in body_lower and kw not in base_lower
+                )
+                if hits >= 2:
                     return True
         return False

@@ -9,7 +9,7 @@ Multi-provider wrapper supporting:
 Configure via config/default.yaml:
     ai:
       provider: "google"          # or "openrouter"
-      api_key:  "AIzaSyDeNUPdd6hYFkLT0V0etwIPbE2XfS8Y2ls"
+      api_key:  "<your-api-key>"
       model:    "gemma-4-26b-a4b-it"  # Reverted due to 500 Internal Server Error on 31b
       enabled:  true
 """
@@ -30,7 +30,7 @@ GOOGLE_AI_URL_TEMPLATE = (
 )
 
 # ── Module State ──────────────────────────────────────────────────────────────
-_api_key  = "AIzaSyDeNUPdd6hYFkLT0V0etwIPbE2XfS8Y2ls"
+_api_key  = "AIzaSyA2y9ulI18v5ANOe6aqnQVhcbAhD65lSaw"
 _model    = "gemma-4-26b-a4b-it"
 _provider = "google"   # "google" | "openrouter"
 

@@ -16,7 +16,7 @@ from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
 from modules.vulns.verification import (
-    ResponseAnalyzer, TimingAnalyzer, ConfidenceScorer, Confidence,
+    ResponseAnalyzer, ResponseNormalizer, TimingAnalyzer, ConfidenceScorer, Confidence,
 )
 
 logger = HexHunterXLogger.get_logger("vulns.ssrf")
@@ -61,6 +61,7 @@ class SSRFDetector:
         self.http = http_client
         self.oob = oob_client
         self._analyzer = ResponseAnalyzer()
+        self._normalizer = ResponseNormalizer()
         self._timing = TimingAnalyzer(threshold_ms=3000, trials=3)
         self._scorer = ConfidenceScorer()
 
@@ -188,31 +189,24 @@ class SSRFDetector:
                     found.append(name)
         return list(set(found))
 
-    @staticmethod
-    def _check_metadata(body, baseline_body):
+    def _check_metadata(self, body, baseline_body):
         found = []
-        body_lower = body.lower()
-        bl_lower = baseline_body.lower()
+        body_norm = self._normalizer.normalize(body).lower()
+        bl_norm = self._normalizer.normalize(baseline_body).lower()
         for indicator in METADATA_INDICATORS:
-            if indicator.lower() in body_lower and indicator.lower() not in bl_lower:
+            if indicator.lower() in body_norm and indicator.lower() not in bl_norm:
                 found.append(indicator)
         return found
 
     def _detect_internal_service(self, body, baseline_body):
+        body_norm = self._normalizer.normalize(body)
+        baseline_norm = self._normalizer.normalize(baseline_body)
         for pattern, service in INTERNAL_SERVICE_SIGS:
-            if re.search(pattern, body, re.I) and not re.search(pattern, baseline_body, re.I):
+            if re.search(pattern, body_norm, re.I) and not re.search(pattern, baseline_norm, re.I):
                 return service
         return None
 
-    @staticmethod
-    def _response_differs(baseline, resp):
-        if resp.body == baseline.body:
-            return False
-        bl_len = max(len(baseline.body), 1)
-        resp_len = len(resp.body)
-        if abs(resp_len - bl_len) < 1000:  # Tighter threshold: 1000 bytes
-            return False
-        ratio = resp_len / bl_len
-        if ratio < 0.15 or ratio > 6.0:
-            return True
-        return False
+    def _response_differs(self, baseline, resp):
+        return self._analyzer.response_changed_meaningly(
+            baseline.body, resp.body, min_diff_bytes=100
+        )

@@ -15,7 +15,12 @@ from urllib.parse import urlencode, urlparse, parse_qs
 from utils.logger import HexHunterXLogger
 from utils.network import AsyncHTTPClient
 from modules.fuzzing.payloads import PayloadEngine
-from modules.vulns.verification import ConfidenceScorer, Confidence
+from modules.vulns.verification import (
+    ConfidenceScorer,
+    Confidence,
+    ResponseAnalyzer,
+    ResponseNormalizer,
+)
 
 logger = HexHunterXLogger.get_logger("vulns.ssti")
 
@@ -43,6 +48,8 @@ class SSTIDetector:
         self.http = http_client
         self.oob = oob_client
         self._scorer = ConfidenceScorer()
+        self._analyzer = ResponseAnalyzer()
+        self._normalizer = ResponseNormalizer()
 
     async def detect(self, url: str) -> list[dict]:
         findings = []
@@ -95,16 +102,17 @@ class SSTIDetector:
             if expected not in resp.body:
                 continue
 
-            # Filter: was the expected value already in baseline?
-            if expected in baseline_resp.body:
-                # Check if it appears at the same position — coincidence
-                # Only accept if it appears at a NEW position
-                baseline_positions = [
-                    m.start() for m in re.finditer(re.escape(expected), baseline_resp.body)
-                ]
-                resp_positions = [
-                    m.start() for m in re.finditer(re.escape(expected), resp.body)
-                ]
+            # Quick structural/normalized check to avoid coincidence matches
+            if not self._analyzer.response_changed_meaningly(baseline_resp.body, resp.body, min_diff_bytes=20):
+                # If response didn't change meaningfully, skip — likely coincidental
+                continue
+
+            # Filter: was the expected value already in baseline? Use normalized bodies
+            norm_base = self._normalizer.normalize(baseline_resp.body)
+            norm_resp = self._normalizer.normalize(resp.body)
+            if expected in norm_base:
+                baseline_positions = [m.start() for m in re.finditer(re.escape(expected), norm_base)]
+                resp_positions = [m.start() for m in re.finditer(re.escape(expected), norm_resp)]
                 new_positions = [p for p in resp_positions if p not in baseline_positions]
                 if not new_positions:
                     continue  # Same positions — not our injection
@@ -115,13 +123,16 @@ class SSTIDetector:
             if resp2.error:
                 continue
 
-            confirmed = confirm_expected in resp2.body
-            if confirmed and confirm_expected in baseline_resp.body:
-                # Same baseline check for confirmation
-                bl_pos = [m.start() for m in re.finditer(re.escape(confirm_expected), baseline_resp.body)]
-                r2_pos = [m.start() for m in re.finditer(re.escape(confirm_expected), resp2.body)]
-                if not [p for p in r2_pos if p not in bl_pos]:
-                    confirmed = False
+            # Ensure the confirmation response meaningfully differs from baseline
+            if not self._analyzer.response_changed_meaningly(baseline_resp.body, resp2.body, min_diff_bytes=20):
+                confirmed = False
+            else:
+                confirmed = confirm_expected in resp2.body
+                if confirmed and confirm_expected in self._normalizer.normalize(baseline_resp.body):
+                    bl_pos = [m.start() for m in re.finditer(re.escape(confirm_expected), self._normalizer.normalize(baseline_resp.body))]
+                    r2_pos = [m.start() for m in re.finditer(re.escape(confirm_expected), self._normalizer.normalize(resp2.body))]
+                    if not [p for p in r2_pos if p not in bl_pos]:
+                        confirmed = False
 
             # Score confidence
             signals = {

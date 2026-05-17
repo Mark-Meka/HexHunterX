@@ -135,7 +135,7 @@ class AsyncHTTPClient:
                 self._session.cookie_jar.update_cookies(cookies)
 
     async def request(self, method, url, headers=None, data=None, params=None,
-                      follow_redirects=None) -> HTTPResponse:
+                      json=None, follow_redirects=None) -> HTTPResponse:
         if not self._session:
             await self.start()
         await self.rate_limiter.acquire()
@@ -147,7 +147,7 @@ class AsyncHTTPClient:
                 start = time.monotonic()
                 async with self._session.request(
                     method=method.upper(), url=url, headers=headers,
-                    data=data, params=params, allow_redirects=allow,
+                    data=data, json=json, params=params, allow_redirects=allow,
                 ) as resp:
                     elapsed = (time.monotonic() - start) * 1000
                     try:

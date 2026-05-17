@@ -148,10 +148,11 @@ class SSTIDetector:
                     + f"Engine: {engine}."
                 ),
                 "evidence": (
-                    f"Primary: {primary} → {expected} ({'found' if True else 'not found'})\n"
-                    f"Confirm: {confirm} → {confirm_expected} ({'confirmed' if confirmed else 'not confirmed'})\n"
-                    f"Engine: {engine}\n"
-                    f"Context: {context_snippet}"
+                    f"[1] WHERE TESTED: {base}\n"
+                    f"[2] HOW TESTED: Injected mathematical expression into '{param_name}' to check for server-side evaluation.\n"
+                    f"[3] PAYLOAD USED: {param_name}={primary} (Stage 1) | {param_name}={confirm} (Stage 2)\n"
+                    f"[4] VERIFICATION OUTPUT: Evaluated '{primary}' to '{expected}'. Confirmation '{confirm}' to '{confirm_expected}': {confirmed}. Engine Hint: {engine}.\n"
+                    f"Context snippet: {context_snippet}"
                 ),
                 "request": f"{base}?{urlencode(tp)}",
                 "response": resp.body[:2000],

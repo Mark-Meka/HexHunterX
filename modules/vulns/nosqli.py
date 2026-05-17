@@ -106,10 +106,10 @@ class NoSQLiDetector:
                             f"Status changed from {baseline.status_code} to {resp.status_code}."
                         ),
                         "evidence": (
-                            f"Payload: {payload}\n"
-                            f"Baseline status: {baseline.status_code}\n"
-                            f"Response status: {resp.status_code}\n"
-                            f"Confirmed: {confirmed}"
+                            f"[1] WHERE TESTED: {base}\n"
+                            f"[2] HOW TESTED: Injected NoSQL operator into URL parameter '{param}' and observed authentication bypass.\n"
+                            f"[3] PAYLOAD USED: {param}{payload}\n"
+                            f"[4] VERIFICATION OUTPUT: Status changed from {baseline.status_code} to {resp.status_code}. Retry Confirmed: {confirmed}"
                         ),
                         "request": test_url,
                         "response": resp.body[:1000],
@@ -154,9 +154,10 @@ class NoSQLiDetector:
                         f"Status changed from {baseline.status_code} to {resp.status_code}."
                     ),
                     "evidence": (
-                        f"Payload: {json.dumps(test_data)}\n"
-                        f"Baseline status: {baseline.status_code}\n"
-                        f"Response status: {resp.status_code}"
+                        f"[1] WHERE TESTED: {base}\n"
+                        f"[2] HOW TESTED: Injected NoSQL operator into JSON body parameter 'password' and observed authentication bypass.\n"
+                        f"[3] PAYLOAD USED: {json.dumps(test_data)}\n"
+                        f"[4] VERIFICATION OUTPUT: Status changed from {baseline.status_code} to {resp.status_code}. Retry Confirmed: {confirmed}"
                     ),
                     "request": f"POST {base}\nContent-Type: application/json\n\n{json.dumps(test_data)}",
                     "response": resp.body[:1000],

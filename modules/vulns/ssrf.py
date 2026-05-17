@@ -112,9 +112,10 @@ class SSRFDetector:
                             f"Indicators: {', '.join(indicators[:5])}."
                         ),
                         "evidence": (
-                            f"Payload: {payload}\n"
-                            f"Indicators: {indicators}\n"
-                            f"Response: {resp.body[:1500]}"
+                            f"[1] WHERE TESTED: {base}\n"
+                            f"[2] HOW TESTED: Injected SSRF payload into '{param_name}' and checked for cloud metadata signatures.\n"
+                            f"[3] PAYLOAD USED: {param_name}={payload}\n"
+                            f"[4] VERIFICATION OUTPUT: Found metadata indicators: {indicators}"
                         ),
                         "request": f"{base}?{urlencode(tp)}",
                         "response": resp.body[:3000],
@@ -136,7 +137,12 @@ class SSRFDetector:
                         "description": (
                             f"Internal {service} service banner detected in response."
                         ),
-                        "evidence": f"Payload: {payload}\nService: {service}",
+                        "evidence": (
+                            f"[1] WHERE TESTED: {base}\n"
+                            f"[2] HOW TESTED: Injected SSRF payload into '{param_name}' and checked for internal service banners.\n"
+                            f"[3] PAYLOAD USED: {param_name}={payload}\n"
+                            f"[4] VERIFICATION OUTPUT: Internal {service} service banner detected in response."
+                        ),
                         "request": f"{base}?{urlencode(tp)}",
                         "response": resp.body[:2000],
                         "confidence": conf,
@@ -155,9 +161,10 @@ class SSRFDetector:
                             f"Manual verification recommended."
                         ),
                         "evidence": (
-                            f"Payload: {payload}\n"
-                            f"Baseline size: {len(baseline_resp.body)}\n"
-                            f"Response size: {len(resp.body)}"
+                            f"[1] WHERE TESTED: {base}\n"
+                            f"[2] HOW TESTED: Injected SSRF payload into '{param_name}' and measured significant response body difference.\n"
+                            f"[3] PAYLOAD USED: {param_name}={payload}\n"
+                            f"[4] VERIFICATION OUTPUT: Baseline size: {len(baseline_resp.body)} bytes | Response size: {len(resp.body)} bytes"
                         ),
                         "request": f"{base}?{urlencode(tp)}",
                         "response": resp.body[:1000],

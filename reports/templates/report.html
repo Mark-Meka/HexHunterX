@@ -4,304 +4,453 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HexHunterX Security Assessment Report</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #0f0f1a;
-            --bg-secondary: #1a1a2e;
-            --bg-card: #16213e;
-            --text-primary: #e0e0ff;
-            --text-secondary: #a0a0cc;
-            --accent: #00d4ff;
-            --critical: #ff1744;
-            --high: #ff5722;
-            --medium: #ffc107;
-            --low: #4caf50;
-            --info: #2196f3;
-            --border: #2a2a4a;
+            --bg-primary:    #0a0a14;
+            --bg-secondary:  #12121f;
+            --bg-card:       #15152a;
+            --bg-card-hover: #1c1c35;
+            --text-primary:  #e2e2f4;
+            --text-secondary:#9090b8;
+            --accent:        #00c8f0;
+            --accent-glow:   rgba(0,200,240,0.15);
+            --critical:      #ff1744;
+            --high:          #ff6d00;
+            --medium:        #ffd600;
+            --low:           #00e676;
+            --info:          #2979ff;
+            --border:        #22223a;
+            --radius:        12px;
         }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
+
         body {
-            font-family: 'Segoe UI', 'Inter', -apple-system, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
-            line-height: 1.6;
+            line-height: 1.65;
+            font-size: 15px;
         }
-        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
 
-        /* Header */
+        /* ── Layout ──────────────────────────────────────────── */
+        .container { max-width: 1280px; margin: 0 auto; padding: 2rem 2.5rem; }
+
+        /* ── Header ──────────────────────────────────────────── */
         .header {
             text-align: center;
-            padding: 3rem 0;
+            padding: 3.5rem 0 2.5rem;
             border-bottom: 1px solid var(--border);
-            margin-bottom: 2rem;
+            margin-bottom: 2.5rem;
+            position: relative;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 50%; transform: translateX(-50%);
+            width: 260px; height: 3px;
+            background: linear-gradient(90deg, transparent, var(--accent), transparent);
         }
         .header h1 {
-            font-size: 2.5rem;
-            background: linear-gradient(135deg, var(--accent), #7c4dff);
+            font-size: 2.8rem;
+            font-weight: 700;
+            letter-spacing: -1px;
+            background: linear-gradient(135deg, var(--accent) 0%, #a855f7 100%);
             -webkit-background-clip: text;
             background-clip: text;
             -webkit-text-fill-color: transparent;
             color: transparent;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
         }
-        .header .subtitle { color: var(--text-secondary); font-size: 1.1rem; }
-        .header .meta { color: var(--text-secondary); font-size: 0.85rem; margin-top: 1rem; }
+        .header .subtitle { color: var(--text-secondary); font-size: 1.05rem; }
+        .header .meta {
+            color: var(--text-secondary);
+            font-size: 0.82rem;
+            margin-top: 1.2rem;
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .meta-item { display: flex; align-items: center; gap: 0.4rem; }
+        .meta-dot { width: 5px; height: 5px; background: var(--accent); border-radius: 50%; }
 
-        /* Summary Cards */
+        /* ── Summary Grid ────────────────────────────────────── */
         .summary-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
             gap: 1rem;
             margin: 2rem 0;
         }
         .summary-card {
             background: var(--bg-card);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
+            border-radius: var(--radius);
+            padding: 1.5rem 1.2rem;
             text-align: center;
+            transition: border-color 0.2s, background 0.2s;
         }
+        .summary-card:hover { border-color: var(--accent); background: var(--bg-card-hover); }
         .summary-card .number {
-            font-size: 2.5rem;
+            font-size: 2.6rem;
             font-weight: 700;
             color: var(--accent);
+            line-height: 1;
         }
+        .summary-card .number.danger { color: var(--critical); }
+        .summary-card .number.safe   { color: var(--low); }
         .summary-card .label {
             color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-top: 0.3rem;
+            font-size: 0.82rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            margin-top: 0.5rem;
         }
-        .vuln-danger { color: var(--critical); }
-        .vuln-safe { color: var(--low); }
 
-        /* Severity Bar */
+        /* ── Severity Bar ────────────────────────────────────── */
         .severity-bar {
             display: flex;
-            gap: 0.5rem;
+            flex-wrap: wrap;
+            gap: 0.75rem;
             margin: 2rem 0;
-            padding: 1rem;
+            padding: 1.2rem;
             background: var(--bg-card);
-            border-radius: 12px;
+            border-radius: var(--radius);
             border: 1px solid var(--border);
         }
         .sev-item {
             flex: 1;
+            min-width: 110px;
             text-align: center;
-            padding: 0.8rem;
+            padding: 0.9rem 0.5rem;
             border-radius: 8px;
         }
-        .sev-critical { background: rgba(255,23,68,0.15); border: 1px solid var(--critical); }
-        .sev-high { background: rgba(255,87,34,0.15); border: 1px solid var(--high); }
-        .sev-medium { background: rgba(255,193,7,0.15); border: 1px solid var(--medium); }
-        .sev-low { background: rgba(76,175,80,0.15); border: 1px solid var(--low); }
-        .sev-info { background: rgba(33,150,243,0.15); border: 1px solid var(--info); }
-        .sev-item .count { font-size: 1.8rem; font-weight: 700; }
-        .sev-item .label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; }
+        .sev-critical { background: rgba(255,23,68,0.12);  border: 1px solid rgba(255,23,68,0.4); }
+        .sev-high     { background: rgba(255,109,0,0.12);  border: 1px solid rgba(255,109,0,0.4); }
+        .sev-medium   { background: rgba(255,214,0,0.10);  border: 1px solid rgba(255,214,0,0.4); }
+        .sev-low      { background: rgba(0,230,118,0.10);  border: 1px solid rgba(0,230,118,0.4); }
+        .sev-info     { background: rgba(41,121,255,0.10); border: 1px solid rgba(41,121,255,0.4); }
+        .sev-item .count { font-size: 2rem; font-weight: 700; line-height: 1; }
+        .sev-item .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: 0.3rem; }
 
-        /* Sections */
+        /* ── Sections ────────────────────────────────────────── */
         .section { margin: 3rem 0; }
-        .section h2 {
-            font-size: 1.5rem;
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
             color: var(--accent);
-            margin-bottom: 1rem;
-            padding-bottom: 0.5rem;
+            margin-bottom: 1.2rem;
+            padding-bottom: 0.6rem;
             border-bottom: 2px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+        }
+        .section-title .count-badge {
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 0.15rem 0.55rem;
+            border-radius: 20px;
+            vertical-align: middle;
         }
 
-        /* Vulnerability Cards */
-        .vuln-card {
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            border-left: 4px solid var(--info);
-        }
-        .vuln-card.critical { border-left-color: var(--critical); }
-        .vuln-card.high { border-left-color: var(--high); }
-        .vuln-card.medium { border-left-color: var(--medium); }
-        .vuln-card.low { border-left-color: var(--low); }
-        .vuln-card.info { border-left-color: var(--info); }
-
-        .vuln-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; }
-        .vuln-title { font-size: 1.1rem; font-weight: 600; }
+        /* ── Badges ──────────────────────────────────────────── */
         .badge {
             display: inline-block;
-            padding: 0.2rem 0.8rem;
+            padding: 0.18rem 0.7rem;
             border-radius: 20px;
-            font-size: 0.75rem;
-            font-weight: 600;
+            font-size: 0.7rem;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.08em;
+            white-space: nowrap;
         }
         .badge-critical { background: var(--critical); color: #fff; }
-        .badge-high { background: var(--high); color: #fff; }
-        .badge-medium { background: var(--medium); color: #000; }
-        .badge-low { background: var(--low); color: #fff; }
-        .badge-info { background: var(--info); color: #fff; }
+        .badge-high     { background: var(--high);     color: #fff; }
+        .badge-medium   { background: var(--medium);   color: #000; }
+        .badge-low      { background: var(--low);      color: #000; }
+        .badge-info     { background: var(--info);     color: #fff; }
+        .badge-ok       { background: rgba(0,230,118,0.15); color: var(--low); border: 1px solid var(--low); }
+        .badge-dead     { background: rgba(255,23,68,0.12); color: var(--critical); border: 1px solid var(--critical); }
 
-        .vuln-detail { color: var(--text-secondary); margin-bottom: 0.5rem; font-size: 0.95rem; }
-        .vuln-evidence {
+        /* ── Vulnerability Cards ─────────────────────────────── */
+        .vuln-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.4rem 1.6rem;
+            margin-bottom: 0.9rem;
+            border-left: 4px solid var(--info);
+            transition: border-color 0.2s;
+        }
+        .vuln-card:hover { background: var(--bg-card-hover); }
+        .vuln-card.critical { border-left-color: var(--critical); }
+        .vuln-card.high     { border-left-color: var(--high); }
+        .vuln-card.medium   { border-left-color: var(--medium); }
+        .vuln-card.low      { border-left-color: var(--low); }
+        .vuln-card.info     { border-left-color: var(--info); }
+
+        .vuln-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            margin-bottom: 0.7rem;
+            flex-wrap: wrap;
+        }
+        .vuln-title  { font-size: 1rem; font-weight: 600; }
+        .vuln-badges { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+        .vuln-detail { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .vuln-meta   { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
+        .vuln-meta strong { color: var(--text-primary); }
+
+        /* ── Collapsible Evidence ────────────────────────────── */
+        .collapsible {
+            cursor: pointer;
+            user-select: none;
+            margin-top: 0.9rem;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            transition: color 0.15s;
+        }
+        .collapsible:hover { color: var(--accent); }
+        .collapsible::before { content: '▶'; font-size: 0.65rem; transition: transform 0.2s; }
+        .collapsible.open::before { transform: rotate(90deg); }
+        .evidence-panel {
+            display: none;
+            margin-top: 0.6rem;
             background: var(--bg-primary);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 1rem;
-            margin-top: 0.8rem;
-            font-family: 'Consolas', 'Fira Code', monospace;
-            font-size: 0.85rem;
+            padding: 1rem 1.2rem;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.82rem;
             white-space: pre-wrap;
             word-break: break-all;
             color: var(--accent);
+            max-height: 300px;
+            overflow-y: auto;
         }
+        .evidence-panel.open { display: block; }
 
-        /* Tables */
+        /* ── AI Triage Badge ─────────────────────────────────── */
+        .ai-true  { background: rgba(0,230,118,0.15); color: var(--low);      border: 1px solid rgba(0,230,118,0.4);  font-size: 0.7rem; padding: 0.15rem 0.6rem; border-radius: 20px; font-weight: 600; }
+        .ai-false { background: rgba(255,214,0,0.15); color: var(--medium);   border: 1px solid rgba(255,214,0,0.4);  font-size: 0.7rem; padding: 0.15rem 0.6rem; border-radius: 20px; font-weight: 600; }
+        .ai-unknown { background: rgba(144,144,184,0.1); color: var(--text-secondary); border: 1px solid var(--border); font-size: 0.7rem; padding: 0.15rem 0.6rem; border-radius: 20px; }
+
+        /* ── Responsive Tables ───────────────────────────────── */
+        .table-responsive { width: 100%; overflow-x: auto; }
         table {
             width: 100%;
             border-collapse: collapse;
-            margin: 1rem 0;
+            margin: 0.5rem 0;
+            min-width: 540px;
         }
         th, td {
-            padding: 0.8rem 1rem;
+            padding: 0.75rem 1rem;
             text-align: left;
             border-bottom: 1px solid var(--border);
+            vertical-align: middle;
         }
         th {
-            background: var(--bg-card);
+            background: var(--bg-secondary);
             color: var(--accent);
-            font-size: 0.85rem;
+            font-size: 0.75rem;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.09em;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
         }
-        td { color: var(--text-secondary); font-size: 0.9rem; }
-        tr:hover td { background: rgba(0,212,255,0.05); }
+        td   { color: var(--text-secondary); font-size: 0.88rem; }
+        td a { color: var(--accent); text-decoration: none; }
+        td a:hover { text-decoration: underline; }
+        tbody tr:hover td { background: rgba(0,200,240,0.04); }
 
-        /* Footer */
+        /* ── Footer ──────────────────────────────────────────── */
         .footer {
             text-align: center;
-            padding: 2rem 0;
-            margin-top: 3rem;
+            padding: 2.5rem 0;
+            margin-top: 4rem;
             border-top: 1px solid var(--border);
             color: var(--text-secondary);
-            font-size: 0.85rem;
+            font-size: 0.82rem;
         }
-        .collapsible { cursor: pointer; user-select: none; }
-        .collapsible:hover { color: var(--accent); }
-        .content { display: none; }
-        .content.active { display: block; }
+        .footer p + p { margin-top: 0.4rem; }
+        .footer strong { color: var(--accent); }
+
+        /* ── No-data placeholder ─────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            color: var(--text-secondary);
+            padding: 2rem;
+            font-size: 0.9rem;
+            border: 1px dashed var(--border);
+            border-radius: var(--radius);
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header -->
-        <div class="header">
-            <h1>⬡ HexHunterX</h1>
-            <p class="subtitle">Security Assessment Report</p>
-            <p class="meta">
-                Generated: {{ meta.generated_at }} |
-                Target: {{ target.domain or target.ip or 'N/A' }} |
-                Scan ID: #{{ meta.scan_id }}
-            </p>
-        </div>
+<div class="container">
 
-        <!-- Summary Cards -->
-        <div class="summary-grid">
-            <div class="summary-card">
-                <div class="number">{{ summary.total_subdomains }}</div>
-                <div class="label">Subdomains</div>
-            </div>
-            <div class="summary-card">
-                <div class="number">{{ summary.alive_hosts }}</div>
-                <div class="label">Alive Hosts</div>
-            </div>
-            <div class="summary-card">
-                <div class="number">{{ summary.total_endpoints }}</div>
-                <div class="label">Endpoints</div>
-            </div>
-            <div class="summary-card">
-                <div class="number">{{ summary.open_ports }}</div>
-                <div class="label">Open Ports</div>
-            </div>
-            <div class="summary-card">
-                <div class="number {% if summary.total_vulnerabilities > 0 %}vuln-danger{% else %}vuln-safe{% endif %}">
-                    {{ summary.total_vulnerabilities }}
-                </div>
-                <div class="label">Vulnerabilities</div>
-            </div>
+    <!-- ═══════════════ HEADER ═══════════════ -->
+    <div class="header">
+        <h1>⬡ HexHunterX</h1>
+        <p class="subtitle">Security Assessment Report</p>
+        <div class="meta">
+            <span class="meta-item"><span class="meta-dot"></span>Generated: {{ meta.generated_at }}</span>
+            <span class="meta-item"><span class="meta-dot"></span>Target: {{ target.domain or target.ip or 'N/A' }}</span>
+            <span class="meta-item"><span class="meta-dot"></span>Scan ID: #{{ meta.scan_id }}</span>
+            <span class="meta-item"><span class="meta-dot"></span>Version: v{{ meta.version }}</span>
         </div>
+    </div>
 
-        <!-- Severity Breakdown -->
-        <div class="severity-bar">
-            <div class="sev-item sev-critical">
-                <div class="count" style="color:var(--critical)">{{ summary.severity_counts.critical }}</div>
-                <div class="label" style="color:var(--critical)">Critical</div>
-            </div>
-            <div class="sev-item sev-high">
-                <div class="count" style="color:var(--high)">{{ summary.severity_counts.high }}</div>
-                <div class="label" style="color:var(--high)">High</div>
-            </div>
-            <div class="sev-item sev-medium">
-                <div class="count" style="color:var(--medium)">{{ summary.severity_counts.medium }}</div>
-                <div class="label" style="color:var(--medium)">Medium</div>
-            </div>
-            <div class="sev-item sev-low">
-                <div class="count" style="color:var(--low)">{{ summary.severity_counts.low }}</div>
-                <div class="label" style="color:var(--low)">Low</div>
-            </div>
-            <div class="sev-item sev-info">
-                <div class="count" style="color:var(--info)">{{ summary.severity_counts.info }}</div>
-                <div class="label" style="color:var(--info)">Info</div>
-            </div>
+    <!-- ═══════════════ SUMMARY CARDS ═══════════════ -->
+    <div class="summary-grid">
+        <div class="summary-card">
+            <div class="number">{{ summary.total_subdomains }}</div>
+            <div class="label">Subdomains</div>
         </div>
-
-        <!-- Vulnerabilities -->
-        <div class="section">
-            <h2>🔓 Vulnerabilities</h2>
-            {% if vulnerabilities %}
-            {% for vuln in vulnerabilities %}
-            <div class="vuln-card {{ vuln.severity }}">
-                <div class="vuln-header">
-                    <span class="vuln-title">{{ vuln.title or vuln.vuln_type }}</span>
-                    <span class="badge badge-{{ vuln.severity }}">{{ vuln.severity }}</span>
-                </div>
-                <p class="vuln-detail">{{ vuln.description }}</p>
-                {% if vuln.evidence %}
-                <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('active')">
-                    ▶ Evidence (click to expand)
-                </div>
-                <div class="content">
-                    <div class="vuln-evidence">{{ vuln.evidence }}</div>
-                </div>
-                {% endif %}
-                {% if vuln.reproduction %}
-                <div class="collapsible" onclick="this.nextElementSibling.classList.toggle('active')">
-                    ▶ Reproduction Steps (click to expand)
-                </div>
-                <div class="content">
-                    <div class="vuln-evidence">{{ vuln.reproduction }}</div>
-                </div>
-                {% endif %}
-            </div>
-            {% endfor %}
+        <div class="summary-card">
+            <div class="number">{{ summary.alive_hosts }}</div>
+            <div class="label">Alive Hosts</div>
+        </div>
+        <div class="summary-card">
+            <div class="number">{{ summary.total_endpoints }}</div>
+            <div class="label">Endpoints</div>
+        </div>
+        <div class="summary-card">
+            <div class="number">{{ summary.open_ports }}</div>
+            <div class="label">Open Ports</div>
+        </div>
+        <div class="summary-card">
+            {% if summary.total_vulnerabilities > 0 %}
+            <div class="number danger">{{ summary.total_vulnerabilities }}</div>
             {% else %}
-            <p style="color: var(--text-secondary);">No vulnerabilities detected.</p>
+            <div class="number safe">{{ summary.total_vulnerabilities }}</div>
+            {% endif %}
+            <div class="label">Vulnerabilities</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ SEVERITY BREAKDOWN ═══════════════ -->
+    <div class="severity-bar">
+        <div class="sev-item sev-critical">
+            <div class="count" style="color:var(--critical)">{{ summary.severity_counts.critical }}</div>
+            <div class="label" style="color:var(--critical)">Critical</div>
+        </div>
+        <div class="sev-item sev-high">
+            <div class="count" style="color:var(--high)">{{ summary.severity_counts.high }}</div>
+            <div class="label" style="color:var(--high)">High</div>
+        </div>
+        <div class="sev-item sev-medium">
+            <div class="count" style="color:var(--medium)">{{ summary.severity_counts.medium }}</div>
+            <div class="label" style="color:var(--medium)">Medium</div>
+        </div>
+        <div class="sev-item sev-low">
+            <div class="count" style="color:var(--low)">{{ summary.severity_counts.low }}</div>
+            <div class="label" style="color:var(--low)">Low</div>
+        </div>
+        <div class="sev-item sev-info">
+            <div class="count" style="color:var(--info)">{{ summary.severity_counts.info }}</div>
+            <div class="label" style="color:var(--info)">Info</div>
+        </div>
+    </div>
+
+    <!-- ═══════════════ VULNERABILITIES ═══════════════ -->
+    <div class="section">
+        <h2 class="section-title">
+            🔓 Vulnerabilities
+            <span class="count-badge badge-critical">{{ summary.total_vulnerabilities }}</span>
+        </h2>
+
+        {% if vulnerabilities %}
+        {% for vuln in vulnerabilities %}
+        <div class="vuln-card {{ vuln.severity }}">
+            <div class="vuln-header">
+                <span class="vuln-title">{{ vuln.title or vuln.vuln_type }}</span>
+                <div class="vuln-badges">
+                    <span class="badge badge-{{ vuln.severity }}">{{ vuln.severity }}</span>
+                    {% if vuln.confidence %}
+                    <span class="badge badge-info">conf: {{ vuln.confidence }}</span>
+                    {% endif %}
+                    {% if vuln.ai_triage %}
+                    {% set ai = vuln.ai_triage %}
+                    {% if ai.verdict == "TRUE_POSITIVE" %}
+                    <span class="ai-true">AI: Confirmed</span>
+                    {% elif ai.verdict == "FALSE_POSITIVE" %}
+                    <span class="ai-false">AI: FP</span>
+                    {% else %}
+                    <span class="ai-unknown">AI: ?</span>
+                    {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if vuln.ai_triage and vuln.ai_triage.detailed_description %}
+            <div class="ai-analysis-box" style="background: rgba(41,121,255,0.05); border-left: 4px solid var(--accent); padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+                <h4 style="margin-top: 0; color: var(--accent); margin-bottom: 0.5rem;">🧠 AI Vulnerability Analysis</h4>
+                <p class="vuln-detail" style="margin-bottom: 0;">{{ vuln.ai_triage.detailed_description }}</p>
+            </div>
+            {% elif vuln.description %}
+            <p class="vuln-detail">{{ vuln.description }}</p>
+            {% endif %}
+            
+            {% if vuln.ai_triage and vuln.ai_triage.remediation %}
+            <div class="ai-analysis-box" style="background: rgba(0,230,118,0.05); border-left: 4px solid var(--low); padding: 1rem; margin: 1rem 0; border-radius: 4px;">
+                <h4 style="margin-top: 0; color: var(--low); margin-bottom: 0.5rem;">🛠️ AI Remediation Guidance</h4>
+                <p class="vuln-detail" style="margin-bottom: 0;">{{ vuln.ai_triage.remediation }}</p>
+            </div>
+            {% endif %}
+
+            {% if vuln.request %}
+            <p class="vuln-meta"><strong>Endpoint:</strong> {{ vuln.request }}</p>
+            {% endif %}
+
+            {% if vuln.verification_method %}
+            <p class="vuln-meta"><strong>Detection Method:</strong> {{ vuln.verification_method }}</p>
+            {% endif %}
+
+            {% if vuln.ai_triage and vuln.ai_triage.reasoning %}
+            <p class="vuln-meta"><strong>AI Reasoning:</strong> {{ vuln.ai_triage.reasoning }}</p>
+            {% endif %}
+
+            {% if vuln.evidence %}
+            <div class="collapsible" onclick="togglePanel(this)">Evidence</div>
+            <div class="evidence-panel">{{ vuln.evidence }}</div>
+            {% endif %}
+
+            {% if vuln.reproduction %}
+            <div class="collapsible" onclick="togglePanel(this)">Reproduction Steps</div>
+            <div class="evidence-panel">{{ vuln.reproduction }}</div>
             {% endif %}
         </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state">✅ No vulnerabilities detected.</div>
+        {% endif %}
+    </div>
 
-        <!-- Alive Subdomains -->
-        <div class="section">
-            <h2>🟢 Alive Subdomains
-                <span class="badge badge-low" style="font-size:0.7rem;vertical-align:middle;margin-left:0.5rem;">
-                    {{ subdomains | selectattr('is_alive') | list | length }}
-                </span>
-            </h2>
-            {% set alive_subs = subdomains | selectattr('is_alive') | list %}
-            {% if alive_subs %}
+    <!-- ═══════════════ ALIVE SUBDOMAINS ═══════════════ -->
+    <div class="section">
+        {% set alive_subs = subdomains | selectattr('is_alive') | list %}
+        <h2 class="section-title">
+            🟢 Alive Subdomains
+            <span class="count-badge badge-low">{{ alive_subs | length }}</span>
+        </h2>
+        {% if alive_subs %}
+        <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
                         <th>Subdomain</th>
                         <th>IP Address</th>
                         <th>Status</th>
+                        <th>Technologies</th>
                         <th>Title</th>
                     </tr>
                 </thead>
@@ -311,29 +460,41 @@
                         <td><strong>{{ sub.name }}</strong></td>
                         <td>{{ sub.ip or '—' }}</td>
                         <td>
-                            <span class="badge {% if sub.status_code and sub.status_code < 400 %}badge-low{% elif sub.status_code and sub.status_code < 500 %}badge-medium{% else %}badge-high{% endif %}" style="font-size:0.75rem;">
-                                {{ sub.status_code or '—' }}
-                            </span>
+                            {% if sub.status_code %}
+                            {% if sub.status_code < 300 %}
+                            <span class="badge badge-low">{{ sub.status_code }}</span>
+                            {% elif sub.status_code < 400 %}
+                            <span class="badge badge-info">{{ sub.status_code }}</span>
+                            {% elif sub.status_code < 500 %}
+                            <span class="badge badge-medium">{{ sub.status_code }}</span>
+                            {% else %}
+                            <span class="badge badge-high">{{ sub.status_code }}</span>
+                            {% endif %}
+                            {% else %}
+                            —
+                            {% endif %}
                         </td>
+                        <td>{{ sub.tech_stack or '—' }}</td>
                         <td>{{ sub.title or '—' }}</td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
-            {% else %}
-            <p style="color: var(--text-secondary);">No alive subdomains found.</p>
-            {% endif %}
         </div>
+        {% else %}
+        <div class="empty-state">No alive subdomains found.</div>
+        {% endif %}
+    </div>
 
-        <!-- Dead Subdomains -->
-        <div class="section">
-            <h2>🔴 Dead Subdomains
-                <span class="badge badge-critical" style="font-size:0.7rem;vertical-align:middle;margin-left:0.5rem;">
-                    {{ subdomains | rejectattr('is_alive') | list | length }}
-                </span>
-            </h2>
-            {% set dead_subs = subdomains | rejectattr('is_alive') | list %}
-            {% if dead_subs %}
+    <!-- ═══════════════ DEAD SUBDOMAINS ═══════════════ -->
+    <div class="section">
+        {% set dead_subs = subdomains | rejectattr('is_alive') | list %}
+        <h2 class="section-title">
+            🔴 Dead / Unreachable Subdomains
+            <span class="count-badge badge-critical">{{ dead_subs | length }}</span>
+        </h2>
+        {% if dead_subs %}
+        <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -345,24 +506,29 @@
                 <tbody>
                 {% for sub in dead_subs %}
                     <tr>
-                        <td style="color: var(--text-secondary);">{{ sub.name }}</td>
+                        <td style="color:var(--text-secondary)">{{ sub.name }}</td>
                         <td>{{ sub.ip or '—' }}</td>
-                        <td style="color: var(--critical);">
+                        <td style="color:var(--critical)">
                             {% if sub.status_code %}HTTP {{ sub.status_code }}{% else %}No Response{% endif %}
                         </td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
-            {% else %}
-            <p style="color: var(--text-secondary);">No dead subdomains found.</p>
-            {% endif %}
         </div>
+        {% else %}
+        <div class="empty-state">No dead subdomains found.</div>
+        {% endif %}
+    </div>
 
-        <!-- Open Ports -->
-        <div class="section">
-            <h2>🔌 Open Ports</h2>
-            {% if scan_results %}
+    <!-- ═══════════════ OPEN PORTS ═══════════════ -->
+    <div class="section">
+        <h2 class="section-title">
+            🔌 Open Ports
+            <span class="count-badge badge-info">{{ scan_results | length }}</span>
+        </h2>
+        {% if scan_results %}
+        <div class="table-responsive">
             <table>
                 <thead>
                     <tr>
@@ -376,26 +542,70 @@
                 <tbody>
                 {% for sr in scan_results %}
                     <tr>
-                        <td>{{ sr.port }}</td>
+                        <td><strong>{{ sr.port }}</strong></td>
                         <td>{{ sr.protocol }}</td>
                         <td>{{ sr.service or '—' }}</td>
                         <td>{{ sr.version or '—' }}</td>
-                        <td>{{ sr.state }}</td>
+                        <td><span class="badge badge-low">{{ sr.state }}</span></td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
-            {% else %}
-            <p style="color: var(--text-secondary);">No port scan results.</p>
-            {% endif %}
         </div>
-
-        <!-- Footer -->
-        <div class="footer">
-            <p>Generated by <strong>HexHunterX v{{ meta.version }}</strong></p>
-            <p>This report is confidential and intended for authorized recipients only.</p>
-            <p>⚠️ All testing was performed with proper authorization.</p>
-        </div>
+        {% else %}
+        <div class="empty-state">No port scan results.</div>
+        {% endif %}
     </div>
+
+    <!-- ═══════════════ ENDPOINTS ═══════════════ -->
+    <div class="section">
+        <h2 class="section-title">
+            🌐 Discovered Endpoints
+            <span class="count-badge badge-info">{{ endpoints | length }}</span>
+        </h2>
+        {% if endpoints %}
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>URL</th>
+                        <th>Method</th>
+                        <th>Parameters</th>
+                        <th>Source</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for ep in endpoints %}
+                    <tr>
+                        <td><a href="{{ ep.url }}" target="_blank" rel="noopener">{{ ep.url }}</a></td>
+                        <td><span class="badge badge-info">{{ ep.method or 'GET' }}</span></td>
+                        <td>{{ ep.params or '—' }}</td>
+                        <td>{{ ep.source or '—' }}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">No endpoints discovered.</div>
+        {% endif %}
+    </div>
+
+    <!-- ═══════════════ FOOTER ═══════════════ -->
+    <div class="footer">
+        <p>Generated by <strong>HexHunterX v{{ meta.version }}</strong> &nbsp;|&nbsp; AI Model: <strong>{{ meta.ai_model or 'N/A' }}</strong></p>
+        <p>This report is confidential and intended for authorized recipients only.</p>
+        <p>⚠️ All testing was performed with proper written authorization.</p>
+    </div>
+
+</div>
+
+<script>
+    function togglePanel(el) {
+        el.classList.toggle('open');
+        const panel = el.nextElementSibling;
+        if (panel) panel.classList.toggle('open');
+    }
+</script>
 </body>
 </html>

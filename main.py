@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """
 HexHunterX -- Modular Penetration Testing Framework.
 
@@ -82,6 +82,20 @@ def apply_cli_overrides(config: dict, cli_args: dict) -> dict:
             "poll_interval": cli_args.get("oob_poll", 5),
             "wait_timeout": cli_args.get("oob_wait", 30),
         }
+
+    # AI config
+    ai_config = config.get("ai", {})
+    if cli_args.get("ai"):
+        ai_config["enabled"] = True
+        
+    config["ai_triage"] = cli_args.get("ai_triage") or ai_config.get("enabled", False)
+    config["ai_report"] = False
+    config["ai_payloads"] = False
+    
+    if cli_args.get("ai_key"):
+        ai_config["api_key"] = cli_args["ai_key"]
+    
+    config["ai"] = ai_config
 
     return config
 

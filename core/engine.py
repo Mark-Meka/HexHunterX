@@ -95,6 +95,20 @@ class HexHunterXEngine:
             )
             await self.oob_client.register()
 
+        # ─── AI Setup ──────────────────────────────────
+        ai_config = self.config.get("ai", {})
+        if ai_config.get("api_key"):
+            from ai.client import set_api_key, set_model, set_provider
+            set_api_key(ai_config.get("api_key"))
+            if ai_config.get("model"):
+                set_model(ai_config.get("model"))
+            if ai_config.get("provider"):
+                set_provider(ai_config.get("provider"))
+            logger.info(
+                f"AI initialized: provider={ai_config.get('provider','google')} "
+                f"model={ai_config.get('model','?')}"
+            )
+
         logger.success("Engine initialized")
 
     async def shutdown(self):
@@ -138,6 +152,18 @@ class HexHunterXEngine:
             )
             self.target_id = await self.db.insert_target(db_target)
             logger.info(f"Target ID: {self.target_id}")
+
+            # Ensure base target is in subdomains table as alive (so --vuln / --scan works without --recon)
+            target_name = validated.domain or validated.ip
+            if target_name:
+                sub = Subdomain(
+                    target_id=self.target_id,
+                    name=target_name,
+                    ip=validated.ip,
+                    is_alive=True,
+                    source="user_input"
+                )
+                await self.db.insert_subdomain(sub)
 
             # ─── Execute Phases ─────────────────────────
             phase_map = {
@@ -201,6 +227,9 @@ class HexHunterXEngine:
         prober = HostProber(self.http_client)
         sub_records = await self.db.get_subdomains(self.target_id)
         alive_hosts = await prober.probe_hosts([s["name"] for s in sub_records])
+
+        for sub in sub_records:
+            await self.db.update_subdomain(sub["id"], is_alive=0)
 
         for host_info in alive_hosts:
             # Update subdomain with alive status
@@ -317,8 +346,17 @@ class HexHunterXEngine:
             url = f"https://{sub['name']}"
             params = await discoverer.discover(url)
             if params:
-                for ep in await self.db.get_endpoints(sub["id"]):
-                    await self.db.update_subdomain(sub["id"])  # Touch
+                from urllib.parse import urlencode
+                param_dict = {p["name"]: "test" for p in params if "name" in p}
+                if param_dict:
+                    new_url = f"{url}?{urlencode(param_dict)}"
+                    ep = Endpoint(
+                        subdomain_id=sub["id"], 
+                        url=new_url, 
+                        parameters=",".join(param_dict.keys()),
+                        source="fuzzing.params"
+                    )
+                    await self.db.insert_endpoint(ep)
 
         # ─── Endpoint Fuzzing ───────────────────────
         fuzzer = EndpointFuzzer(self.http_client, self.config)

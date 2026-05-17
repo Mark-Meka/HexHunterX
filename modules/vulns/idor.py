@@ -140,11 +140,10 @@ class IDORDetector:
                     + "Manual verification of authorization required."
                 ),
                 "evidence": (
-                    f"Original ID: {orig_id} (size: {len(baseline.body)})\n"
-                    f"Test ID: {test_id} (size: {len(resp.body)})\n"
-                    f"Similarity: {sim:.4f}\n"
-                    f"PII detected: {has_pii}\n"
-                    f"Structural match: {structural['structural_match']}"
+                    f"[1] WHERE TESTED: {base}\n"
+                    f"[2] HOW TESTED: Altered ID parameter '{param}' and compared structural similarity to baseline.\n"
+                    f"[3] PAYLOAD USED: {param}={test_id} (Baseline was {orig_id})\n"
+                    f"[4] VERIFICATION OUTPUT: Similarity: {sim:.4f} | Size Diff: {abs(len(baseline.body)-len(resp.body))} bytes | PII Detected: {has_pii}"
                 ),
                 "request": f"{base}?{urlencode(tp)}",
                 "response": resp.body[:1000],

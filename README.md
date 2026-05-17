@@ -41,9 +41,9 @@ Built with clean architecture, async-first design, and extensible module system 
 | **Authenticated Scanning**  | Cookie, JWT/Bearer, custom header, and auto-login (form POST with CSRF extraction)                                                                     |
 | **Blind/OOB Detection**     | Interactsh integration for blind SSRF, blind SQLi, blind SSTI, and blind/stored XSS via DNS/HTTP callbacks                                             |
 | **Integrations**            | subfinder, httpx, ffuf, nuclei, Interactsh (graceful fallback to built-in alternatives)                                                                |
-| **Reporting**               | Professional HTML reports, structured JSON output, severity classification, evidence capture                                                           |
+| **Reporting**               | Professional dark-themed HTML reports (with Jinja2 security), structured JSON output, severity classification, responsive tables, and embedded AI triage badges |
 | **Intelligence**            | Smart decision engine adapts scanning based on target profile                                                                                          |
-| **AI Integration**          | Opt-in AI Analysis via OpenRouter (Claude-3.5): False positive triage, anomaly detection, context-aware payloads, and executive reporting              |
+| **AI Integration**          | Multi-provider AI Analysis (Google AI Studio / OpenRouter): False positive triage via Gemma/Claude, robust JSON extraction, anomaly detection, and context-aware payloads |
 | **Performance**             | Async I/O, rate limiting, connection pooling, retry with backoff, deduplication                                                                        |
 | **Storage**                 | SQLite persistence, scan resume, full CRUD operations                                                                                                  |
 
@@ -64,8 +64,8 @@ HexHunterX/
 │   └── decision.py                  # Smart decision engine
 │
 ├── ai/                              # 🤖 AI Analysis Layer
-│   ├── client.py                    # OpenRouter API wrapper
-│   ├── triage.py                    # False positive filter
+│   ├── client.py                    # Multi-provider AI client (Google / OpenRouter)
+│   ├── triage.py                    # False positive filter (with robust Markdown-to-JSON parsing)
 │   ├── anomaly.py                   # Statistical response anomaly detection
 │   ├── payloads.py                  # Context-aware payload generation
 │   └── report_writer.py             # Executive summary generator
@@ -123,8 +123,8 @@ HexHunterX/
 │   └── interface.py                 # Argument parsing
 │
 ├── reports/                         # 📊 Reporting
-│   ├── generator.py                 # Report engine
-│   ├── templates/report.html        # HTML template
+│   ├── generator.py                 # Report engine (Jinja2 Environment)
+│   ├── templates/report.html        # Responsive dark-theme HTML template
 │   └── sample_output.json           # Sample output
 │
 └── data/                            # 📁 Data
@@ -372,7 +372,7 @@ python main.py -t example.com --full-scan --format html
 
 Reports are saved to the output directory:
 - **`report.json`** -- Machine-readable structured findings for CI/CD pipelines
-- **`report.html`** -- Professional dark-themed report with severity cards, expandable evidence, and reproduction steps
+- **`report.html`** -- Professional dark-themed report rendered via Jinja2, featuring severity cards, responsive data tables, expandable evidence, AI triage badges, and reproduction steps
 
 ---
 
@@ -579,7 +579,7 @@ Every detector runs automatically during the `--vuln` phase and produces finding
 | `--ai-triage` | Enable only AI false positive filtering | off |
 | `--ai-report` | Enable only AI narrative report generation | off |
 | `--ai-payloads` | Enable only context-aware payload suggestions | off |
-| `--ai-key STRING` | OpenRouter API key (overrides OPENROUTER_API_KEY env var) | none |
+| `--ai-key STRING` | AI Provider API key (Google AI Studio / OpenRouter) | none |
 | **Advanced** | | |
 | `--resume` | Resume scan from database (skip completed phases) | off |
 | `--db PATH` | SQLite database file path | `HexHunterX.db` |

@@ -73,7 +73,7 @@ class CSRFDetector:
                             f"Sensitive form lacks CSRF token. "
                             f"Cookies vulnerable (No SameSite=Strict/Lax): {cookies_vulnerable}."
                         ),
-                        "evidence": f"Action: {action}\nMethod: {method}\nForm content snippet:\n{form_html[:200]}",
+                        "evidence": f"[1] WHERE TESTED: {url} (Form Action: {action})\n[2] HOW TESTED: Parsed HTML form and analyzed cookies for SameSite configuration.\n[3] PAYLOAD USED: N/A (Static Analysis)\n[4] VERIFICATION OUTPUT: Missing CSRF token. Method: {method}. Cookies Vulnerable: {cookies_vulnerable}.",
                         "request": url,
                         "response": form_html[:500],
                         "confidence": conf,
@@ -85,7 +85,7 @@ class CSRFDetector:
                         "severity": "info",
                         "title": f"Missing CSRF token on non-sensitive form: {action[:30]}",
                         "description": "Form lacks CSRF token but does not appear to perform a sensitive action.",
-                        "evidence": f"Action: {action}",
+                        "evidence": f"[1] WHERE TESTED: {url} (Form Action: {action})\n[2] HOW TESTED: Parsed HTML form and analyzed action keywords.\n[3] PAYLOAD USED: N/A (Static Analysis)\n[4] VERIFICATION OUTPUT: Missing CSRF token but action appears non-sensitive.",
                         "request": url,
                         "response": "",
                         "confidence": Confidence.LOW,

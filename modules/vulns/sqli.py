@@ -11,6 +11,7 @@ Multi-technique SQLi detection with real verification:
 """
 
 import re
+import json
 from urllib.parse import urlencode, urlparse, parse_qs
 
 from utils.logger import HexHunterXLogger
@@ -86,10 +87,13 @@ class SQLiDetector:
         findings = []
         parsed = urlparse(url)
         params = parse_qs(parsed.query)
+        base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        
+        # Always attempt JSON POST body SQLi if it accepts POST
+        findings.extend(await self._test_json_body(base))
+
         if not params:
             return findings
-
-        base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
 
         for param_name in params:
             original_val = params[param_name][0] if params[param_name] else "1"
@@ -136,6 +140,74 @@ class SQLiDetector:
 
         return findings
 
+    async def _test_json_body(self, base):
+        """Test for SQLi Auth Bypass in JSON POST bodies across all endpoints."""
+        findings = []
+        
+        # Test if the endpoint accepts POST JSON by sending dummy data
+        dummy_data = {"email": "admin@test.com", "username": "admin", "password": "wrongpassword"}
+        baseline = await self.http.post(base, json=dummy_data)
+        
+        # If it returns 405 Method Not Allowed or 404 Not Found, it likely doesn't accept POST.
+        if baseline.error or baseline.status_code in (404, 405):
+            return findings
+
+        # If it's already 200/301/302, bypassing is hard to verify via status code flip.
+        if baseline.status_code in (200, 301, 302):
+            return findings
+
+        json_auth_payloads = [
+            "' OR 1=1--", "' OR '1'='1", "admin' --", "' OR 1=1#"
+        ]
+
+        for payload in json_auth_payloads:
+            for field in ["email", "username", "password"]:
+                test_data = dict(dummy_data)
+                test_data[field] = payload
+
+                resp = await self.http.post(base, json=test_data)
+                if resp.error:
+                    continue
+
+                # Check for bypass (status code flips from 4xx to 200/3xx)
+                if resp.status_code in (200, 301, 302, 303, 307, 308) and baseline.status_code not in (200, 301, 302, 303, 307, 308):
+                    # Verify
+                    resp2 = await self.http.post(base, json=test_data)
+                    confirmed = not resp2.error and resp2.status_code in (200, 301, 302, 303, 307, 308)
+
+                    signals = {
+                        "status_code_flip": True,
+                        "auth_bypass": True,
+                        "retry_confirmed": confirmed,
+                    }
+                    conf = self._scorer.score(signals)
+                    
+                    if not Confidence.meets_threshold(conf, Confidence.MEDIUM):
+                        continue
+
+                    findings.append({
+                        "type": "SQL Injection (JSON Auth Bypass)",
+                        "severity": "critical" if confirmed else "high",
+                        "title": f"SQLi JSON Auth Bypass in field '{field}'",
+                        "description": (
+                            f"Injecting SQLi payload into JSON field '{field}' bypassed authentication. "
+                            f"Status changed from {baseline.status_code} to {resp.status_code}."
+                        ),
+                        "evidence": (
+                            f"[1] WHERE TESTED: {base}\n"
+                            f"[2] HOW TESTED: Injected SQL Auth Bypass payload into JSON POST body field '{field}'.\n"
+                            f"[3] PAYLOAD USED: {json.dumps(test_data)}\n"
+                            f"[4] VERIFICATION OUTPUT: Status changed from {baseline.status_code} to {resp.status_code}. Retry Confirmed: {confirmed}"
+                        ),
+                        "request": f"POST {base}\nContent-Type: application/json\n\n{json.dumps(test_data)}",
+                        "response": resp.body[:1000],
+                        "confidence": conf,
+                        "verification_method": "json_auth_bypass_verification",
+                    })
+                    return findings # Return early to avoid duplicate alerts on the same endpoint
+
+        return findings
+
     async def _test_error_based(self, base, param, orig, others, baseline):
         """Test for error-based SQLi using minimal probes."""
         baseline_db, _ = self._detect_error(baseline.body)
@@ -175,8 +247,10 @@ class SQLiDetector:
                     f"Confirmed with retry verification."
                 ),
                 "evidence": (
-                    f"Database: {db_type}\nProbe: {probe}\n"
-                    f"Error: {error_match}\nRetry: confirmed"
+                    f"[1] WHERE TESTED: {base}\n"
+                    f"[2] HOW TESTED: Injected SQL syntax error probe into '{param}' and searched response for database error patterns.\n"
+                    f"[3] PAYLOAD USED: {param}={probe}\n"
+                    f"[4] VERIFICATION OUTPUT: {db_type} error matched: '{error_match}'. Retry: confirmed."
                 ),
                 "request": f"{base}?{urlencode(tp)}",
                 "response": resp.body[:2000],
@@ -228,10 +302,10 @@ class SQLiDetector:
                             f"Verified with retry."
                         ),
                         "evidence": (
-                            f"True payload: {true_payload}\n"
-                            f"False payload: {false_payload}\n"
-                            f"Similarity true: {sim_true:.4f} / {sim_true2:.4f}\n"
-                            f"Similarity false: {sim_false:.4f} / {sim_false2:.4f}"
+                            f"[1] WHERE TESTED: {base}\n"
+                            f"[2] HOW TESTED: Injected TRUE and FALSE boolean conditions into '{param}' and compared structural similarity.\n"
+                            f"[3] PAYLOAD USED: True: {true_payload} | False: {false_payload}\n"
+                            f"[4] VERIFICATION OUTPUT: True condition similarity: {sim_true:.4f} | False condition similarity: {sim_false:.4f}"
                         ),
                         "request": f"{base}?{urlencode(tp_true)}",
                         "response": resp_false.body[:1000],
@@ -271,10 +345,10 @@ class SQLiDetector:
                         f"{result.trials} trials (baseline: {result.baseline_median_ms:.0f}ms)."
                     ),
                     "evidence": (
-                        f"Payload: {payload}\n"
-                        f"Baseline median: {result.baseline_median_ms:.0f}ms\n"
-                        f"Injected median: {result.injected_median_ms:.0f}ms\n"
-                        f"Consistent: {result.consistent}"
+                        f"[1] WHERE TESTED: {base}\n"
+                        f"[2] HOW TESTED: Injected {delay}-second sleep payload into '{param}' and measured response timing statistically.\n"
+                        f"[3] PAYLOAD USED: {payload}\n"
+                        f"[4] VERIFICATION OUTPUT: Baseline Median: {result.baseline_median_ms:.0f}ms | Injected Median: {result.injected_median_ms:.0f}ms | Consistent: {result.consistent}"
                     ),
                     "request": inject_url,
                     "response": "",

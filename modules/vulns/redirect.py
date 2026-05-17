@@ -82,10 +82,10 @@ class OpenRedirectDetector:
                                 f"Retry: {'confirmed' if retry_ok else 'not retried'}."
                             ),
                             "evidence": (
-                                f"Status: {resp.status_code}\n"
-                                f"Location: {location}\n"
-                                f"Payload: {payload}\n"
-                                f"Retry confirmed: {retry_ok}"
+                                f"[1] WHERE TESTED: {base}\n"
+                                f"[2] HOW TESTED: Injected external domain payload into redirect parameter '{param}' and checked Location header.\n"
+                                f"[3] PAYLOAD USED: {param}={payload}\n"
+                                f"[4] VERIFICATION OUTPUT: HTTP {resp.status_code} Redirect to Location: {location}. Retry confirmed: {retry_ok}"
                             ),
                             "request": test_url,
                             "response": f"HTTP {resp.status_code}\nLocation: {location}",
@@ -106,7 +106,12 @@ class OpenRedirectDetector:
                             "description": (
                                 f"Parameter '{param}' causes {body_redirect} redirect."
                             ),
-                            "evidence": f"Type: {body_redirect}\nPayload: {payload}",
+                            "evidence": (
+                                f"[1] WHERE TESTED: {base}\n"
+                                f"[2] HOW TESTED: Injected payload into '{param}' and searched HTTP response body for client-side redirect signatures.\n"
+                                f"[3] PAYLOAD USED: {param}={payload}\n"
+                                f"[4] VERIFICATION OUTPUT: Found '{body_redirect}' containing the payload."
+                            ),
                             "request": test_url,
                             "response": resp.body[:1000],
                             "confidence": Confidence.MEDIUM,

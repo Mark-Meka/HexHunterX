@@ -1,4 +1,4 @@
-﻿# ─────────────────────────────────────────────────
+# ─────────────────────────────────────────────────
 # HexHunterX — Default Configuration
 # ─────────────────────────────────────────────────
 
@@ -91,3 +91,9 @@ integrations:
     enabled: true
     severity: "low,medium,high,critical"
     rate_limit: 150
+
+ai:
+  provider: "google"                          # "google" or "openrouter"
+  api_key: "AIzaSyDeNUPdd6hYFkLT0V0etwIPbE2XfS8Y2ls"  # Google AI Studio key
+  model: "gemma-4-26b-a4b-it"                # Reverted due to 500 error on 31b
+  enabled: true

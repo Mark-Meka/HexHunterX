@@ -1,4 +1,4 @@
-﻿"""
+"""
 HexHunterX -- Endpoint Collection Module.
 
 Web crawling, JavaScript parsing, and Wayback Machine URL collection.
@@ -61,6 +61,14 @@ class EndpointCollector:
         # Wayback Machine
         wayback = await self._wayback(urlparse(base_url).hostname or base_url)
         all_endpoints.update(wayback)
+
+        # Smart SPA auth endpoint guessing (for hidden APIs)
+        common_auth = [
+            "/api/login", "/api/auth", "/rest/user/login", "/api/v1/login",
+            "/auth/login", "/users/login", "/api/users/login", "/login.php"
+        ]
+        for p in common_auth:
+            all_endpoints.add(urljoin(base_url, p))
 
         # Filter and normalize
         filtered = self._filter_endpoints(list(all_endpoints), base_url)

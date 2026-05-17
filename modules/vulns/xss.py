@@ -115,8 +115,10 @@ class XSSDetector:
                         f"without sanitization. Payload verified in executable position."
                     ),
                     "evidence": (
-                        f"Context: {context}\nPayload: {payload}\n"
-                        f"Verification: {v['reason']}"
+                        f"[1] WHERE TESTED: {base}\n"
+                        f"[2] HOW TESTED: Injected canary to determine {context} context, then verified executable breakout payload.\n"
+                        f"[3] PAYLOAD USED: {param_name}={payload}\n"
+                        f"[4] VERIFICATION OUTPUT: Verified XSS payload executed via: {v['reason']}"
                     ),
                     "request": f"{base}?{urlencode(tp)}",
                     "response": pr.body[:2000],
@@ -256,7 +258,12 @@ class XSSDetector:
                 "severity": "medium",
                 "title": "Potential DOM XSS — source-to-sink flow detected",
                 "description": f"Source-to-sink flows in same script block: {desc}. Manual verification required.",
-                "evidence": f"Flows: {flows}",
+                "evidence": (
+                    f"[1] WHERE TESTED: {url}\n"
+                    f"[2] HOW TESTED: Extracted all script blocks and ran static taint analysis for DOM flow.\n"
+                    f"[3] PAYLOAD USED: N/A (Static Analysis)\n"
+                    f"[4] VERIFICATION OUTPUT: Detected {len(flows)} source-to-sink flows: {flows}"
+                ),
                 "request": url, "response": "",
                 "confidence": Confidence.LOW,
                 "verification_method": "dom_taint_analysis",
